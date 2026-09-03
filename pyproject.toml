@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xactflow-sv"
+dynamic = ["version"]
+description = "XactFlow importer plugin that serializes a SystemVerilog module and a metadata file into an ipxact.Component."
+readme = "README.md"
+license = "LGPL-3.0-only"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Maxime Travaillard"},
+]
+requires-python = ">=3.9"
+dependencies = [
+    "xactflow",
+    "ipxact-compiler",
+]
+keywords = [
+    "IP-XACT", "IEEE 1685", "XML", "Compiler",
+    "XactFlow", "SystemVerilog", "Importer",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Repository = "https://github.com/IP-XACT/XactFlow-sv"
+Issues = "https://github.com/IP-XACT/XactFlow-sv/issues"
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+
+[project.entry-points."xactflow.importers"]
+sv = "xactflow_sv:SVImporter"
+
+[tool.setuptools.dynamic]
+version = {attr = "xactflow_sv.__version__"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+xactflow_sv = ["py.typed"]
