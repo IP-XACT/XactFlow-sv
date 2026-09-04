@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xactflow-sv"
 dynamic = ["version"]
-description = "XactFlow importer plugin that serializes a SystemVerilog module and a metadata file into an ipxact.Component."
+description = "XactFlow importer plugin that reads a SystemVerilog module and a metadata file into an ipxact.Component."
 readme = "README.md"
 license = "LGPL-3.0-only"
 license-files = ["LICENSE"]
@@ -16,6 +16,7 @@ requires-python = ">=3.9"
 dependencies = [
     "xactflow",
     "ipxact-compiler",
+    "pyslang>=10.0.0",
 ]
 keywords = [
     "IP-XACT", "IEEE 1685", "XML", "Compiler",

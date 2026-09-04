@@ -1,16 +1,49 @@
 __version__ = "0.1.0"
 
+import json
 from pathlib import Path
 
-import ipxact
 from xactflow import Importer
+
+from .component_builder import build_component
+from .sv_parser import extract_module_name, extract_parameters, extract_ports, find_module, parse_sv
 
 
 class SVImporter(Importer):
+    """Reads a SystemVerilog module plus a JSON metadata file into an ipxact.Component.
+
+    The metadata file's schema follows ipxact-sv2ipxact's --meta file: "vendor" and
+    "library" are required, "version" defaults to "1.0". busInterfaces and registerFile
+    entries are not read yet; that support lands in later phases alongside the port
+    mapping and register-map conversion logic.
+    """
+
     name = "sv"
 
     def import_(self, source_path: Path, **options: object) -> object:
-        raise NotImplementedError
+        if "metadata" not in options:
+            raise ValueError("missing required option 'metadata' (path to the IP-XACT metadata JSON file)")
+        metadata_path = Path(options["metadata"])  # resolved relative to the CWD
+        metadata = json.loads(metadata_path.read_text())
+
+        try:
+            vendor = metadata["vendor"]
+            library = metadata["library"]
+        except KeyError as exc:
+            raise ValueError(f"metadata file {metadata_path} is missing required field {exc}") from exc
+        version = metadata.get("version", "1.0")
+
+        defines_option = options.get("define", "")
+        defines = [d for d in str(defines_option).split(",") if d]
+
+        tree_json = parse_sv(source_path, defines)
+        module_node = find_module(tree_json)
+        header = module_node.get("header", {})
+        module_name = extract_module_name(header)
+        params = extract_parameters(header)
+        ports = extract_ports(header)
+
+        return build_component(module_name, vendor, library, version, params, ports)
 
 
 __all__ = ["__version__", "SVImporter"]
