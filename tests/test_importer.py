@@ -74,11 +74,26 @@ def test_import_module_with_parameter():
     assert ports_by_name["pclk"].wire.vectors == []
 
 
-def test_import_struct_port_not_yet_supported():
-    with pytest.raises(NotImplementedError, match="struct/interface-typed"):
+def test_import_struct_port():
+    component = SVImporter().import_(
+        FIXTURES / "struct_port" / "struct_port.sv",
+        metadata=str(FIXTURES / "struct_port" / "ipxact.json"),
+    )
+
+    port = component.model.ports[0]
+    assert port.name == "apb_req_i"
+    assert port.structured == ipxact.StructuredPort(
+        struct_type="struct", direction=ipxact.Direction.IN, sub_ports=[]
+    )
+    assert port.description == "SystemVerilog type 'apb_req_t'"
+    assert port.wire is None
+
+
+def test_import_interface_array_port_not_yet_supported():
+    with pytest.raises(NotImplementedError, match="unpacked array"):
         SVImporter().import_(
-            FIXTURES / "unsupported" / "struct_port.sv",
-            metadata=str(FIXTURES / "unsupported" / "ipxact.json"),
+            FIXTURES / "unsupported" / "interface_array_port.sv",
+            metadata=str(FIXTURES / "unsupported" / "interface_array_port_ipxact.json"),
         )
 
 

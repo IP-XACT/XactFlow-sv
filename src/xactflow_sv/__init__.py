@@ -5,6 +5,7 @@ from pathlib import Path
 
 from xactflow import Importer
 
+from .bus_interfaces import build_bus_interface, validate_bus_interfaces
 from .component_builder import build_component
 from .sv_parser import extract_module_name, extract_parameters, extract_ports, find_module, parse_sv
 
@@ -12,10 +13,10 @@ from .sv_parser import extract_module_name, extract_parameters, extract_ports, f
 class SVImporter(Importer):
     """Reads a SystemVerilog module plus a JSON metadata file into an ipxact.Component.
 
-    The metadata file's schema follows ipxact-sv2ipxact's --meta file: "vendor" and
-    "library" are required, "version" defaults to "1.0". busInterfaces and registerFile
-    entries are not read yet; that support lands in later phases alongside the port
-    mapping and register-map conversion logic.
+    The metadata file's "vendor" and "library" are required, "version" defaults to "1.0".
+    "busInterfaces" is optional and maps a bus interface name to its bus/mode/port mapping,
+    see bus_interfaces.py. "registerFile" is not read yet; register-map conversion is a
+    later phase.
     """
 
     name = "sv"
@@ -43,7 +44,13 @@ class SVImporter(Importer):
         params = extract_parameters(header)
         ports = extract_ports(header)
 
-        return build_component(module_name, vendor, library, version, params, ports)
+        bus_interfaces_meta = metadata.get("busInterfaces") or {}
+        validate_bus_interfaces(bus_interfaces_meta, ports)
+        bus_interfaces = [
+            build_bus_interface(name, iface) for name, iface in bus_interfaces_meta.items()
+        ]
+
+        return build_component(module_name, vendor, library, version, params, ports, bus_interfaces)
 
 
 __all__ = ["__version__", "SVImporter"]

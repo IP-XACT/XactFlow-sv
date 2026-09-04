@@ -227,7 +227,7 @@ def extract_ports(header: dict) -> list[dict]:
                     "iface_type": iface_name,
                     "modport": modport,
                     "packed_dims": [],
-                    "unpacked_dims": [],
+                    "unpacked_dims": _extract_dims(declarator),
                 }
             )
             continue
