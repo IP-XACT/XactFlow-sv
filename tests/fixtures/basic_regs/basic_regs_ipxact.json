@@ -1,0 +1,6 @@
+{
+    "vendor": "Vendor",
+    "library": "Library",
+    "version": "1.0",
+    "registerFile": "basic_regs.rdl"
+}

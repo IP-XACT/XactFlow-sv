@@ -1,0 +1,17 @@
+addrmap basic_regs {
+    reg {
+        desc = "control register";
+        field {
+            desc = "the value";
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } CTRL @ 0x0;
+
+    reg {
+        field {
+            sw = r;
+            hw = w;
+        } value[8] = 0;
+    } STATUS @ 0x4;
+};

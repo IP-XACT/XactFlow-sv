@@ -1,0 +1,17 @@
+addrmap main_regs {
+    reg {
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } MAIN_CTRL @ 0x0;
+};
+
+addrmap unrelated_helper {
+    reg {
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } HELPER_REG @ 0x0;
+};

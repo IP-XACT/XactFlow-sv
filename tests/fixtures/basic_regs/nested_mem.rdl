@@ -1,0 +1,14 @@
+addrmap top_with_nested_mem {
+    reg {
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } CTRL @ 0x0;
+
+    external mem {
+        mementries = 16;
+        memwidth = 32;
+        sw = r;
+    } ROM @ 0x10;
+};

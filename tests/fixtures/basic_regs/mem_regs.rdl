@@ -1,0 +1,7 @@
+addrmap mem_regs {
+    external mem {
+        mementries = 16;
+        memwidth = 32;
+        sw = r;
+    } ROM @ 0x0;
+};

@@ -1,0 +1,8 @@
+addrmap array_regs {
+    reg {
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } CTRL[4] @ 0x0;
+};

@@ -1,0 +1,16 @@
+addrmap ispresent_regs {
+    reg {
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } CTRL @ 0x0;
+
+    reg {
+        ispresent = false;
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } DISABLED_REG @ 0x4;
+};

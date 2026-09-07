@@ -1,0 +1,13 @@
+addrmap sub_block {
+    reg {
+        field {
+            sw = rw;
+            hw = r;
+        } value[8] = 0;
+    } LEAF_REG @ 0x0;
+};
+
+addrmap hierarchical_regs {
+    sub_block blk0 @ 0x0;
+    sub_block blk1 @ 0x100;
+};
