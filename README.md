@@ -73,8 +73,8 @@ This is only useful as a quick smoke test of the SV/metadata parsing itself, not
 actual `Component` out: XactFlow's CLI currently has no way to chain an importer straight into
 an exporter, so this just prints a one-line summary (`imported '...' via 'sv': Component`) and
 discards the result. Getting real output today means using this package as a library, as above.
-An issue as been open on [XactFlow](https://github.com/IP-XACT/XactFlow/issues/2), in order to
-find a solution for this.
+An issue has been opened on [XactFlow](https://github.com/IP-XACT/XactFlow/issues/2), in order
+to find a solution for this.
 
 Only the SystemVerilog module header (parameters and ports) is inspected, with no elaboration,
 no package loading, no symbol resolution: types, values, and dimension expressions are taken

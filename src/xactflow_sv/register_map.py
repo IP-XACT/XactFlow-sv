@@ -5,7 +5,7 @@ Compiles the register file with systemrdl-compiler, exports it to a temporary IE
 ipxact-compiler's 1685-2022 memory-map dataclasses. A dedicated reader is used instead of
 ipxact-compiler's own parser. This is a deliberate choice for now, not a permanent one.
 Switching to ipxact-compiler's parser needs a 2014-to-2022 XML restructuring step first,
-which is easier to do here, has we only do it for the memory-map dataclasses.
+which is easier to do here, as we only do it for the memory-map dataclasses.
 """
 
 from __future__ import annotations
