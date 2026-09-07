@@ -4,6 +4,7 @@ import ipxact
 import pytest
 
 from xactflow_sv import SVImporter
+from xactflow_sv.component_builder import _build_port
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -83,26 +84,51 @@ def test_import_struct_port():
     port = component.model.ports[0]
     assert port.name == "apb_req_i"
     assert port.structured == ipxact.StructuredPort(
-        struct_type="struct", direction=ipxact.Direction.IN, sub_ports=[]
+        struct_type="struct",
+        direction=ipxact.Direction.IN,
+        sub_ports=[],
+        struct_port_type_defs=[ipxact.StructPortTypeDef(type_name="apb_req_t")],
     )
-    assert port.description == "SystemVerilog type 'apb_req_t'"
     assert port.wire is None
 
 
-def test_import_interface_array_port_not_yet_supported():
-    with pytest.raises(NotImplementedError, match="unpacked array"):
-        SVImporter().import_(
-            FIXTURES / "unsupported" / "interface_array_port.sv",
-            metadata=str(FIXTURES / "unsupported" / "interface_array_port_ipxact.json"),
-        )
+def test_interface_port_without_modport_has_no_role():
+    port = _build_port(
+        {
+            "name": "apb",
+            "direction": "inout",
+            "is_interface": True,
+            "is_struct": False,
+            "iface_type": "interface",
+            "modport": "",
+            "packed_dims": [],
+            "unpacked_dims": [],
+        }
+    )
+
+    assert port.structured.struct_port_type_defs == [ipxact.StructPortTypeDef(type_name="interface")]
 
 
-def test_import_unpacked_array_port_not_yet_supported():
-    with pytest.raises(NotImplementedError, match="unpacked array"):
-        SVImporter().import_(
-            FIXTURES / "unsupported" / "unpacked_port.sv",
-            metadata=str(FIXTURES / "unsupported" / "ipxact.json"),
-        )
+def test_import_interface_array_port():
+    component = SVImporter().import_(
+        FIXTURES / "unsupported" / "interface_array_port.sv",
+        metadata=str(FIXTURES / "unsupported" / "interface_array_port_ipxact.json"),
+    )
+
+    port = component.model.ports[0]
+    assert port.name == "apb"
+    assert port.arrays == [ipxact.ArrayBound(left="3", right="0")]
+
+
+def test_import_unpacked_array_port():
+    component = SVImporter().import_(
+        FIXTURES / "unsupported" / "unpacked_port.sv",
+        metadata=str(FIXTURES / "unsupported" / "ipxact.json"),
+    )
+
+    port = component.model.ports[0]
+    assert port.name == "mem"
+    assert port.arrays == [ipxact.ArrayBound(left="0", right="15")]
 
 
 def test_import_missing_metadata_field_raises(tmp_path):

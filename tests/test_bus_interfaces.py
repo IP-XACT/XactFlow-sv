@@ -34,6 +34,22 @@ def test_discrete_ports_bus_interface_mapping():
     assert len(component.model.ports) == 11
 
 
+def test_struct_field_bus_interface_mapping():
+    component = SVImporter().import_(
+        FIXTURES / "struct_port" / "struct_port.sv",
+        metadata=str(FIXTURES / "struct_port" / "struct_port_bus_ipxact.json"),
+    )
+
+    abstraction_type = component.bus_interfaces[0].abstraction_types[0]
+    assert abstraction_type.port_maps == [
+        ipxact.PortMap(
+            logical_port="PSEL",
+            physical_port="apb_req_i",
+            sub_port_refs=[ipxact.SubPortReference(sub_port_ref="psel")],
+        )
+    ]
+
+
 def test_interface_port_bus_interface_mapping():
     component = SVImporter().import_(
         FIXTURES / "apb_target_interface" / "apb_target.sv",
@@ -46,8 +62,11 @@ def test_interface_port_bus_interface_mapping():
     assert bus_interface.abstraction_types == []
 
     ports_by_name = {p.name: p for p in component.model.ports}
-    assert ports_by_name["apb"].structured == ipxact.StructuredPort(struct_type="interface", sub_ports=[])
-    assert ports_by_name["apb"].description == "SystemVerilog interface 'apb_if' (modport 'slave')"
+    assert ports_by_name["apb"].structured == ipxact.StructuredPort(
+        struct_type="interface",
+        sub_ports=[],
+        struct_port_type_defs=[ipxact.StructPortTypeDef(type_name="apb_if", role="slave")],
+    )
     assert ports_by_name["apb"].wire is None
     assert ports_by_name["apb"].transactional is None
 

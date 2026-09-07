@@ -1,4 +1,4 @@
-ipxact-compiler
+ipxact-compiler>=0.1.1
 xactflow
 pyslang>=10.0.0
 systemrdl-compiler>=1.32.2

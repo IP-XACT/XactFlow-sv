@@ -24,27 +24,31 @@ def _build_parameters(params: list[dict]) -> list[ipxact.Parameter]:
     return [ipxact.Parameter(name=p["name"], value=p["value"] or "0", resolve="user") for p in params]
 
 
-def _build_vectors(packed_dims: list[tuple[str, str]]) -> list[ipxact.Vector]:
-    return [ipxact.Vector(left=left, right=right) for left, right in packed_dims]
+def _build_vectors(dims: list[tuple[str, str]]) -> list[ipxact.Vector]:
+    return [ipxact.Vector(left=left, right=right) for left, right in dims]
+
+
+def _build_arrays(dims: list[tuple[str, str]]) -> list[ipxact.ArrayBound]:
+    return [ipxact.ArrayBound(left=left, right=right) for left, right in dims]
 
 
 def _build_port(port: dict) -> ipxact.Port:
-    if port["unpacked_dims"]:
-        raise NotImplementedError(
-            f"port '{port['name']}' has unpacked array dimensions, which ipxact-compiler's "
-            "Port/WirePort model does not currently represent"
-        )
+    arrays = _build_arrays(port["unpacked_dims"])
 
     if port["is_interface"]:
-        # No dedicated field for the interface type name/modport, so they go in description.
         return ipxact.Port(
             name=port["name"],
-            structured=ipxact.StructuredPort(struct_type="interface", sub_ports=[]),
-            description=f"SystemVerilog interface '{port['iface_type']}' (modport '{port['modport']}')",
+            structured=ipxact.StructuredPort(
+                struct_type="interface",
+                sub_ports=[],
+                struct_port_type_defs=[
+                    ipxact.StructPortTypeDef(type_name=port["iface_type"], role=port["modport"] or None)
+                ],
+            ),
+            arrays=arrays,
         )
 
     if port["is_struct"]:
-        # No elaboration, so field layout is unknown; only the type name goes in description.
         return ipxact.Port(
             name=port["name"],
             structured=ipxact.StructuredPort(
@@ -52,8 +56,9 @@ def _build_port(port: dict) -> ipxact.Port:
                 vectors=_build_vectors(port["packed_dims"]),
                 sub_ports=[],
                 direction=ipxact.Direction(port["direction"]),
+                struct_port_type_defs=[ipxact.StructPortTypeDef(type_name=port["type_name"])],
             ),
-            description=f"SystemVerilog type '{port['type_name']}'",
+            arrays=arrays,
         )
 
     return ipxact.Port(
@@ -61,6 +66,7 @@ def _build_port(port: dict) -> ipxact.Port:
         wire=ipxact.WirePort(
             direction=ipxact.Direction(port["direction"]), vectors=_build_vectors(port["packed_dims"])
         ),
+        arrays=arrays,
     )
 
 

@@ -3,10 +3,6 @@
 Everything here is derived from the metadata file's "busInterfaces" object, not from parsing
 the SystemVerilog itself (see sv_parser.py for that); it is deliberately the only source of
 truth for a bus interface's VLNV and mode, with no guessing from port/modport names.
-
-A struct-typed physical port mapped with a dotted "port.field" reference (addressing one
-field of the struct) is not supported yet: ipxact-compiler's PortMap has no equivalent of
-ipxact:physicalPort/ipxact:subPort to record which field is being referenced.
 """
 
 from __future__ import annotations
@@ -80,12 +76,14 @@ def build_bus_interface(name: str, iface: dict) -> ipxact.BusInterface:
         )
         port_maps = []
         for logical, physical in (iface.get("ports") or {}).items():
-            if "." in physical:
-                raise NotImplementedError(
-                    f"busInterface '{name}': logical port '{logical}' maps to '{physical}', "
-                    "a struct-field reference, which is not yet supported"
+            port_name, *sub_path = physical.split(".")
+            port_maps.append(
+                ipxact.PortMap(
+                    logical_port=logical,
+                    physical_port=port_name,
+                    sub_port_refs=[ipxact.SubPortReference(sub_port_ref=field) for field in sub_path],
                 )
-            port_maps.append(ipxact.PortMap(logical_port=logical, physical_port=physical))
+            )
         abstraction_types = [ipxact.AbstractionType(abstraction_ref=abstraction_ref, port_maps=port_maps)]
 
     return ipxact.BusInterface(
