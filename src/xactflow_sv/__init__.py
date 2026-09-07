@@ -7,6 +7,7 @@ from xactflow import Importer
 
 from .bus_interfaces import build_bus_interface, validate_bus_interfaces
 from .component_builder import build_component
+from .register_map import build_memory_maps
 from .sv_parser import extract_module_name, extract_parameters, extract_ports, find_module, parse_sv
 
 
@@ -15,8 +16,9 @@ class SVImporter(Importer):
 
     The metadata file's "vendor" and "library" are required, "version" defaults to "1.0".
     "busInterfaces" is optional and maps a bus interface name to its bus/mode/port mapping,
-    see bus_interfaces.py. "registerFile" is not read yet; register-map conversion is a
-    later phase.
+    see bus_interfaces.py. "registerFile" is optional and is a path to a SystemRDL register
+    map, resolved relative to the metadata file unless it is itself absolute, see
+    register_map.py.
     """
 
     name = "sv"
@@ -50,7 +52,18 @@ class SVImporter(Importer):
             build_bus_interface(name, iface) for name, iface in bus_interfaces_meta.items()
         ]
 
-        return build_component(module_name, vendor, library, version, params, ports, bus_interfaces)
+        register_file = metadata.get("registerFile")
+        if register_file is not None and not (isinstance(register_file, str) and register_file):
+            raise ValueError(f"metadata file 'registerFile' must be a non-empty path string, got: {register_file!r}")
+        memory_maps = (
+            build_memory_maps(metadata_path.parent / register_file)
+            if register_file
+            else []
+        )
+
+        return build_component(
+            module_name, vendor, library, version, params, ports, bus_interfaces, memory_maps
+        )
 
 
 __all__ = ["__version__", "SVImporter"]

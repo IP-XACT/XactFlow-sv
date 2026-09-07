@@ -17,6 +17,8 @@ dependencies = [
     "xactflow",
     "ipxact-compiler",
     "pyslang>=10.0.0",
+    "systemrdl-compiler>=1.32.2",
+    "peakrdl-ipxact>=3.5.0",
 ]
 keywords = [
     "IP-XACT", "IEEE 1685", "XML", "Compiler",

@@ -1,8 +1,8 @@
 """component_builder.py: build an ipxact.Component from parsed SV port/parameter dicts.
 
 Constructs ipxact-compiler dataclasses directly, no XML involved. Bus-interface objects
-themselves are built by bus_interfaces.py from the metadata file; register-map conversion
-from the metadata file's registerFile is a separate, later phase.
+are built by bus_interfaces.py and memory maps by register_map.py, both from the metadata
+file; this module assembles them into the final Component.
 """
 
 from __future__ import annotations
@@ -72,6 +72,7 @@ def build_component(
     params: list[dict],
     ports: list[dict],
     bus_interfaces: Optional[list[ipxact.BusInterface]] = None,
+    memory_maps: Optional[list[ipxact.MemoryMap]] = None,
 ) -> ipxact.Component:
     instantiation_name = f"{module_name}_rtl"
 
@@ -96,6 +97,7 @@ def build_component(
     return ipxact.Component(
         vlnv=ipxact.VLNV(vendor, library, module_name, version),
         bus_interfaces=list(bus_interfaces or []),
+        memory_maps=list(memory_maps or []),
         model=model,
         parameters=_build_parameters(params),
     )
