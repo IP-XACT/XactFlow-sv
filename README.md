@@ -39,42 +39,33 @@ Requires Python >= 3.9. Runtime dependencies beyond `ipxact-compiler`/`xactflow`
 ## Usage
 
 An importer's job stops at producing an `ipxact.Component` object; it does not write anything
-out on its own. As a library:
+out on its own, so getting an actual IP-XACT XML file also needs an exporter, like
+[`xactflow-component`](https://github.com/IP-XACT/XactFlow-component). Once both are installed,
+the importer registers itself under the `xactflow.importers` entry point group as `sv`, so
+it can run as one XactFlow CLI command, `--then` chaining straight into the exporter
+in the same process (requires `xactflow>=0.1.1`):
+
+```bash
+xactflow sv my_module.sv --option metadata=my_module_ipxact.json --then component --output out/
+# writes out/<name>.xml
+```
+
+Or as a library, e.g. to inspect or modify the `Component` before exporting it:
 
 ```python
 from pathlib import Path
 
 from xactflow_sv import SVImporter
+from xactflow_component import ComponentExporter
 
 component = SVImporter().import_(Path("my_module.sv"), metadata="my_module_ipxact.json")
 component.vlnv            # VLNV
 component.model.ports     # list[Port]
 component.bus_interfaces  # list[BusInterface]
 component.memory_maps     # list[MemoryMap]
-```
-
-To get an actual IP-XACT XML file, hand `component` to an exporter, e.g.
-[`xactflow-component`](https://github.com/IP-XACT/XactFlow-component):
-
-```python
-from xactflow_component import ComponentExporter
 
 ComponentExporter().export(component, Path("out"))  # writes out/<name>.xml
 ```
-
-Once installed, the importer also registers itself under the `xactflow.importers` entry point
-group as `sv`, so it becomes available as a XactFlow CLI subcommand:
-
-```bash
-xactflow sv my_module.sv --option metadata=my_module_ipxact.json
-```
-
-This is only useful as a quick smoke test of the SV/metadata parsing itself, not to get an
-actual `Component` out: XactFlow's CLI currently has no way to chain an importer straight into
-an exporter, so this just prints a one-line summary (`imported '...' via 'sv': Component`) and
-discards the result. Getting real output today means using this package as a library, as above.
-An issue has been opened on [XactFlow](https://github.com/IP-XACT/XactFlow/issues/2), in order
-to find a solution for this.
 
 Only the SystemVerilog module header (parameters and ports) is inspected, with no elaboration,
 no package loading, no symbol resolution: types, values, and dimension expressions are taken
