@@ -1,5 +1,5 @@
-ipxact-compiler>=0.1.1
-xactflow>=0.1.1
+ipxact-compiler>=0.1.2
+xactflow>=0.1.2
 pyslang>=10.0.0
 systemrdl-compiler>=1.32.2
 peakrdl-ipxact>=3.5.0
