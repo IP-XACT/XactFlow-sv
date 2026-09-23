@@ -3,6 +3,7 @@ from pathlib import Path
 import ipxact
 import pytest
 
+from xactflow import evaluate, parameter_resolver
 from xactflow_sv import SVImporter
 from xactflow_sv.component_builder import _build_port
 
@@ -64,15 +65,30 @@ def test_import_module_with_parameter():
     )
 
     assert component.vlnv == ipxact.VLNV("Vendor", "Library", "apb_gpio", "1.0")
-    assert component.parameters == [ipxact.Parameter(name="DATA_W", value="8", resolve="user")]
+    assert component.parameters == [
+        ipxact.Parameter(name="DATA_W", value="8", resolve="user", parameter_id="DATA_W")
+    ]
 
     module_params = component.model.component_instantiations[0].module_parameters
-    assert module_params == [ipxact.ModuleParameter(name="DATA_W", value="8", data_type="int")]
+    assert module_params == [
+        ipxact.ModuleParameter(name="DATA_W", value="8", data_type="int", parameter_id="DATA_W")
+    ]
 
     ports_by_name = {p.name: p for p in component.model.ports}
     assert ports_by_name["pwdata"].wire.vectors == [ipxact.Vector(left="DATA_W-1", right="0")]
     assert ports_by_name["paddr"].wire.vectors == [ipxact.Vector(left="3", right="0")]
     assert ports_by_name["pclk"].wire.vectors == []
+
+
+def test_imported_parameters_are_cross_referenceable_by_name():
+    component = SVImporter().import_(
+        FIXTURES / "apb_gpio" / "apb_gpio.sv",
+        metadata=str(FIXTURES / "apb_gpio" / "apb_gpio_ipxact.json"),
+    )
+
+    resolve = parameter_resolver(component.parameters)
+    pwdata = next(p for p in component.model.ports if p.name == "pwdata")
+    assert evaluate(pwdata.wire.vectors[0].left, resolve_parameter=resolve) == 7
 
 
 def test_import_struct_port():
@@ -126,9 +142,10 @@ def test_import_unpacked_array_port():
         metadata=str(FIXTURES / "unsupported" / "ipxact.json"),
     )
 
-    port = component.model.ports[0]
-    assert port.name == "mem"
-    assert port.arrays == [ipxact.ArrayBound(left="0", right="15")]
+    ports_by_name = {p.name: p for p in component.model.ports}
+    assert ports_by_name["mem"].arrays == [ipxact.ArrayBound(left="0", right="15")]
+    assert ports_by_name["mem_sized"].arrays == [ipxact.ArrayBound(left="(16)-1", right="0")]
+    assert ports_by_name["ways"].arrays == [ipxact.ArrayBound(left="(NumWays)-1", right="0")]
 
 
 def test_import_missing_metadata_field_raises(tmp_path):

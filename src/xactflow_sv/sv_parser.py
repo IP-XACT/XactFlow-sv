@@ -59,20 +59,36 @@ def _text(node: dict | list | str | None) -> str:
     return ""
 
 
-def _range_bounds(dim: dict) -> tuple[str, str]:
+def _range_bounds(dim: dict, allow_size_shorthand: bool = False) -> tuple[str, str]:
     """Extract (left, right) from a VariableDimension node, as raw source text.
 
-    Only a plain `[left:right]` selector (SimpleRangeSelect) is supported: an indexed
-    part-select (`[base+:width]`/`[base-:width]`, Ascending/DescendingRangeSelect) encodes
-    a base and a width, not a left/right bound, and would need arithmetic to convert.
+    A plain `[left:right]` selector (SimpleRangeSelect) gives the bounds directly. A lone
+    `[N]` selector (BitSelect) is only valid SV grammar as an actual unpacked dimension (SV's
+    shorthand for "array of N elements", implicitly bounded 0 to N-1, converted here to
+    (N-1, 0)); pyslang's syntax-only parsing doesn't reject it appearing as a packed
+    dimension too (e.g. a typo'd `logic [4] x` meaning `[3:0]`), so callers must only pass
+    allow_size_shorthand=True when `dim` is actually an unpacked dimension. An indexed
+    part-select (`[base+:width]`/`[base-:width]`, Ascending/DescendingRangeSelect) encodes a
+    base and a width, not a left/right bound, and would need arithmetic to convert, so it is
+    not yet supported.
     """
     spec = dim.get("specifier", {})
     sel = spec.get("selector", {})
     selector_kind = sel.get("kind", "")
-    if selector_kind and selector_kind != "SimpleRangeSelect":
+    if allow_size_shorthand and selector_kind == "BitSelect":
+        size = _text(sel.get("expr"))
+        if size == "0":
+            raise NotImplementedError("a zero-size array dimension ('[0]') is not supported")
+        return f"({size})-1", "0"
+
+    # A queue ([$]), dynamic array ([]), or wildcard ([*]) dimension has a different
+    # specifier kind and no "selector", so it must be checked, not just the selector kind.
+    is_range = spec.get("kind") == "RangeDimensionSpecifier"
+    if not is_range or selector_kind != "SimpleRangeSelect":
+        kind = selector_kind if is_range else spec.get("kind")
         raise NotImplementedError(
-            f"dimension selector of kind '{selector_kind}' is not yet supported, only a plain "
-            "[left:right] range is"
+            f"dimension of kind '{kind}' is not yet supported, only a plain [left:right] range"
+            + (" or a [N] array size is" if allow_size_shorthand else " is")
         )
     return _text(sel.get("left")), _text(sel.get("right"))
 
@@ -171,14 +187,13 @@ _DIRECTION_MAP = {
 }
 
 
-def _extract_dims(node: dict) -> list[tuple[str, str]]:
+def _extract_dims(node: dict, allow_size_shorthand: bool = False) -> list[tuple[str, str]]:
     """Return the (left, right) dimensions listed in `node`'s 'dimensions' field.
-
-    Used both for a dataType node's packed dimensions and a declarator node's unpacked
-    dimensions: both hold a plain list of VariableDimension nodes in that field.
     """
     return [
-        _range_bounds(d) for d in node.get("dimensions", []) if d.get("kind") == "VariableDimension"
+        _range_bounds(d, allow_size_shorthand)
+        for d in node.get("dimensions", [])
+        if d.get("kind") == "VariableDimension"
     ]
 
 
@@ -227,14 +242,14 @@ def extract_ports(header: dict) -> list[dict]:
                     "iface_type": iface_name,
                     "modport": modport,
                     "packed_dims": [],
-                    "unpacked_dims": _extract_dims(declarator),
+                    "unpacked_dims": _extract_dims(declarator, allow_size_shorthand=True),
                 }
             )
             continue
 
         data_type = port_header.get("dataType", {})
         packed_dims = _extract_dims(data_type)
-        unpacked_dims = _extract_dims(declarator)
+        unpacked_dims = _extract_dims(declarator, allow_size_shorthand=True)
 
         # A NamedType/ScopedType base (e.g. 'apb_req_t', 'my_pkg::my_req_t', or a
         # 'parameter type' default) is a struct/union/typedef reference, not a builtin

@@ -93,3 +93,65 @@ def test_indexed_part_select_dimension_raises_not_implemented(tmp_path):
 
     with pytest.raises(NotImplementedError, match="AscendingRangeSelect"):
         extract_ports(_header(sv_file))
+
+
+def test_shorthand_unpacked_array_size_dimension():
+    header = _header(FIXTURES / "unsupported" / "unpacked_port.sv")
+
+    ports_by_name = {p["name"]: p for p in extract_ports(header)}
+    assert ports_by_name["mem_sized"]["unpacked_dims"] == [("(16)-1", "0")]
+    assert ports_by_name["ways"]["unpacked_dims"] == [("(NumWays)-1", "0")]
+
+
+def test_shorthand_unpacked_array_size_is_parenthesized_to_keep_precedence(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text(
+        "module m #(\n"
+        "    parameter int ADDR_WIDTH = 4\n"
+        ") (\n"
+        "    output logic [7:0] mem [1 << ADDR_WIDTH]\n"
+        ");\nendmodule\n"
+    )
+
+    ports_by_name = {p["name"]: p for p in extract_ports(_header(sv_file))}
+    # Without the parentheses, "1<<ADDR_WIDTH-1" would be misread as "1 << (ADDR_WIDTH-1)"
+    # instead of the intended "(1<<ADDR_WIDTH)-1".
+    assert ports_by_name["mem"]["unpacked_dims"] == [("(1<<ADDR_WIDTH)-1", "0")]
+
+
+def test_array_size_shorthand_on_a_packed_port_dimension_raises_not_implemented(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m(output logic [4] x);\nendmodule\n")
+
+    # [N] is only valid SV grammar for an unpacked dimension; a bare [N] as a packed
+    # dimension (meant as [3:0], say) must not be silently reinterpreted as array-size
+    # shorthand just because pyslang's syntax-only parse doesn't reject it either.
+    with pytest.raises(NotImplementedError, match="BitSelect"):
+        extract_ports(_header(sv_file))
+
+
+def test_array_size_shorthand_on_a_packed_parameter_dimension_raises_not_implemented(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m #(parameter logic [4] BAD = 0) (input logic clk);\nendmodule\n")
+
+    with pytest.raises(NotImplementedError, match="BitSelect"):
+        extract_parameters(_header(sv_file))
+
+
+def test_zero_size_unpacked_array_raises_not_implemented(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m(output logic [7:0] mem [0]);\nendmodule\n")
+
+    with pytest.raises(NotImplementedError, match="zero-size"):
+        extract_ports(_header(sv_file))
+
+
+def test_queue_dimension_raises_not_implemented(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m(output logic [7:0] mem_q [$]);\nendmodule\n")
+
+    # A queue's specifier has no "selector" at all (unlike a range or [N] array size), so
+    # this must be rejected by the specifier's own kind, not silently pass through as if
+    # there were nothing to reject.
+    with pytest.raises(NotImplementedError, match="QueueDimensionSpecifier"):
+        extract_ports(_header(sv_file))
