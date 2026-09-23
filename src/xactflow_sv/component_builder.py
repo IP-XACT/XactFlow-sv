@@ -14,14 +14,19 @@ import ipxact
 
 def _build_module_parameters(params: list[dict]) -> list[ipxact.ModuleParameter]:
     return [
-        ipxact.ModuleParameter(name=p["name"], value=p["value"] or "0", data_type=p["dataType"])
+        ipxact.ModuleParameter(
+            name=p["name"], value=p["value"] or "0", data_type=p["dataType"], parameter_id=p["name"]
+        )
         for p in params
     ]
 
 
 def _build_parameters(params: list[dict]) -> list[ipxact.Parameter]:
     # Unlike moduleParameter, ipxact:parameter has no dataType field to carry the SV type in.
-    return [ipxact.Parameter(name=p["name"], value=p["value"] or "0", resolve="user") for p in params]
+    return [
+        ipxact.Parameter(name=p["name"], value=p["value"] or "0", resolve="user", parameter_id=p["name"])
+        for p in params
+    ]
 
 
 def _build_vectors(dims: list[tuple[str, str]]) -> list[ipxact.Vector]:
