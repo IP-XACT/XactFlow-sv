@@ -71,7 +71,7 @@ def test_import_module_with_parameter():
 
     module_params = component.model.component_instantiations[0].module_parameters
     assert module_params == [
-        ipxact.ModuleParameter(name="DATA_W", value="8", data_type="int", parameter_id="DATA_W")
+        ipxact.ModuleParameter(name="DATA_W", value="DATA_W", data_type="int")
     ]
 
     ports_by_name = {p.name: p for p in component.model.ports}
