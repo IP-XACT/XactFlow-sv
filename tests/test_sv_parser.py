@@ -155,3 +155,57 @@ def test_queue_dimension_raises_not_implemented(tmp_path):
     # there were nothing to reject.
     with pytest.raises(NotImplementedError, match="QueueDimensionSpecifier"):
         extract_ports(_header(sv_file))
+
+
+def test_syntax_error_raises_with_file_and_line(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    # Missing comma after port 'a': pyslang would otherwise recover by dropping port 'b'.
+    sv_file.write_text(
+        "module m (\n  input logic a\n  output logic b,\n  input logic c\n);\nendmodule\n"
+    )
+
+    with pytest.raises(ValueError, match=r"m\.sv:2:16: error: expected ','"):
+        parse_sv(sv_file, [])
+
+
+def test_missing_include_file_raises(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text('`include "defs.svh"\nmodule m (input logic [`DW-1:0] data);\nendmodule\n')
+
+    with pytest.raises(ValueError, match="'defs.svh': No such file or directory"):
+        parse_sv(sv_file, [])
+
+
+def test_include_dirs_are_searched(tmp_path):
+    (tmp_path / "inc").mkdir()
+    (tmp_path / "inc" / "defs.svh").write_text("`define DW 16\n")
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text('`include "defs.svh"\nmodule m (input logic [`DW-1:0] data);\nendmodule\n')
+
+    tree_json = parse_sv(sv_file, [], [str(tmp_path / "inc")])
+    ports = extract_ports(find_module(tree_json).get("header", {}))
+    assert ports[0]["packed_dims"] == [("16-1", "0")]
+
+
+def test_several_modules_without_module_name_raises(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module helper (input logic x);\nendmodule\nmodule top (input logic clk);\nendmodule\n")
+
+    with pytest.raises(ValueError, match=r"several modules \(helper, top\)"):
+        find_module(parse_sv(sv_file, []))
+
+
+def test_module_name_selects_the_module(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module helper (input logic x);\nendmodule\nmodule top (input logic clk);\nendmodule\n")
+
+    module_node = find_module(parse_sv(sv_file, []), "top")
+    assert extract_module_name(module_node.get("header", {})) == "top"
+
+
+def test_unknown_module_name_raises(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module helper (input logic x);\nendmodule\n")
+
+    with pytest.raises(ValueError, match="module 'top' not found in input file, found: helper"):
+        find_module(parse_sv(sv_file, []), "top")

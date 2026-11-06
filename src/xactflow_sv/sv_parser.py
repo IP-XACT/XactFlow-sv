@@ -10,31 +10,50 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Optional
 
 import pyslang
 
 
-def parse_sv(sv_file: Path, defines: list[str]) -> dict:
+def parse_sv(sv_file: Path, defines: list[str], include_dirs: Optional[list[str]] = None) -> dict:
     """Parse `sv_file` with pyslang and return its SyntaxTree as a dict."""
-    if defines:
-        source_manager = pyslang.SourceManager()
-        bag = pyslang.Bag()
-        options = pyslang.parsing.PreprocessorOptions()
-        options.predefines = list(defines)
-        bag.preprocessorOptions = options
-        tree = pyslang.syntax.SyntaxTree.fromFile(str(sv_file), source_manager, bag)
-    else:
-        tree = pyslang.syntax.SyntaxTree.fromFile(str(sv_file))
+    source_manager = pyslang.SourceManager()
+    options = pyslang.parsing.PreprocessorOptions()
+    options.predefines = list(defines)
+    options.additionalIncludePaths = list(include_dirs or [])
+    bag = pyslang.Bag()
+    bag.preprocessorOptions = options
+    tree = pyslang.syntax.SyntaxTree.fromFile(str(sv_file), source_manager, bag)
+
+    errors = [d for d in tree.diagnostics if d.isError()]
+    if errors:
+        raise ValueError(
+            f"{sv_file} has SystemVerilog errors:\n" + pyslang.DiagnosticEngine.reportAll(source_manager, errors)
+        )
 
     return json.loads(tree.to_json())
 
 
-def find_module(tree_json: dict) -> dict:
-    """Return the first ModuleDeclaration node in the tree."""
-    for member in tree_json.get("root", {}).get("members", []):
-        if member.get("kind") == "ModuleDeclaration":
-            return member
-    raise ValueError("no module declaration found in input file")
+def find_module(tree_json: dict, module_name: Optional[str] = None) -> dict:
+    """Return the ModuleDeclaration node named `module_name`.
+
+    Without `module_name`, the file must declare exactly one module: picking the first one
+    would silently ignore the others.
+    """
+    modules = [m for m in tree_json.get("root", {}).get("members", []) if m.get("kind") == "ModuleDeclaration"]
+    if not modules:
+        raise ValueError("no module declaration found in input file")
+
+    by_name = {extract_module_name(m.get("header", {})): m for m in modules}
+    if module_name is not None:
+        if module_name not in by_name:
+            raise ValueError(f"module '{module_name}' not found in input file, found: {', '.join(by_name)}")
+        return by_name[module_name]
+    if len(modules) > 1:
+        raise ValueError(
+            f"input file declares several modules ({', '.join(by_name)}), choose one with the 'module' option"
+        )
+    return modules[0]
 
 
 def _text(node: dict | list | str | None) -> str:

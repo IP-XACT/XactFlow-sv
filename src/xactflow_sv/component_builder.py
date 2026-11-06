@@ -97,6 +97,7 @@ def build_component(
         component_instantiations=[
             ipxact.ComponentInstantiation(
                 name=instantiation_name,
+                language="systemverilog",
                 module_name=module_name,
                 module_parameters=_build_module_parameters(params),
             )

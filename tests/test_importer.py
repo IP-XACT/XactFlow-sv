@@ -27,7 +27,7 @@ def test_import_plain_wire_ports_module():
                 )
             ],
             component_instantiations=[
-                ipxact.ComponentInstantiation(name="adder_rtl", module_name="adder"),
+                ipxact.ComponentInstantiation(name="adder_rtl", language="systemverilog", module_name="adder"),
             ],
             ports=[
                 ipxact.Port(
@@ -164,3 +164,42 @@ def test_import_missing_metadata_field_raises(tmp_path):
 
     with pytest.raises(ValueError, match="library"):
         SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
+
+
+def _write_ifdef_module(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text(
+        "module m (\n`ifdef WIDE\n  input logic [31:0] d\n`else\n  input logic [7:0] d\n`endif\n);\nendmodule\n"
+    )
+    metadata = tmp_path / "m_ipxact.json"
+    metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
+    return sv_file, str(metadata)
+
+
+@pytest.mark.parametrize("define", ["OTHER,WIDE", ["OTHER", "WIDE"]])
+def test_define_option_as_string_or_list(tmp_path, define):
+    sv_file, metadata = _write_ifdef_module(tmp_path)
+
+    component = SVImporter().import_(sv_file, metadata=metadata, define=define)
+    assert component.model.ports[0].wire.vectors[0].left == ipxact.Expression("31")
+
+
+@pytest.mark.parametrize("name, value", [("define", 1), ("define", ["WIDE", 1]), ("include", {"a": "b"})])
+def test_list_option_of_wrong_type_raises(tmp_path, name, value):
+    sv_file, metadata = _write_ifdef_module(tmp_path)
+
+    with pytest.raises(ValueError, match=f"option '{name}' must be a comma-separated string or a list"):
+        SVImporter().import_(sv_file, metadata=metadata, **{name: value})
+
+
+def test_module_option_selects_the_module(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module helper (input logic x);\nendmodule\nmodule top (input logic clk);\nendmodule\n")
+    metadata = tmp_path / "m_ipxact.json"
+    metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
+
+    component = SVImporter().import_(sv_file, metadata=str(metadata), module="top")
+    assert component.vlnv.name == "top"
+
+    with pytest.raises(ValueError, match="option 'module' must be a module name string"):
+        SVImporter().import_(sv_file, metadata=str(metadata), module=["top"])

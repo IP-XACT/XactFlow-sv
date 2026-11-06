@@ -11,6 +11,22 @@ from .register_map import build_memory_maps
 from .sv_parser import extract_module_name, extract_parameters, extract_ports, find_module, parse_sv
 
 
+def _list_option(options: dict, name: str) -> list[str]:
+    """Read option `name` as a list of strings.
+
+    Accepts a comma-separated string (how the CLI's --option passes it) or a list of strings
+    (when calling import_ directly).
+    """
+    value = options.get(name)
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [v for v in value.split(",") if v]
+    if isinstance(value, (list, tuple)) and all(isinstance(v, str) for v in value):
+        return [v for v in value if v]
+    raise ValueError(f"option '{name}' must be a comma-separated string or a list of strings, got: {value!r}")
+
+
 class SVImporter(Importer):
     """Reads a SystemVerilog module plus a JSON metadata file into an ipxact.Component.
 
@@ -19,6 +35,10 @@ class SVImporter(Importer):
     see bus_interfaces.py. "registerFile" is optional and is a path to a SystemRDL register
     map, resolved relative to the metadata file unless it is itself absolute, see
     register_map.py.
+
+    Options: "metadata" (required), "define" (preprocessor symbols), "include" (`include
+    search directories, resolved relative to the CWD), and "module" (the module to import,
+    required when the file declares more than one).
     """
 
     name = "sv"
@@ -36,11 +56,14 @@ class SVImporter(Importer):
             raise ValueError(f"metadata file {metadata_path} is missing required field {exc}") from exc
         version = metadata.get("version", "1.0")
 
-        defines_option = options.get("define", "")
-        defines = [d for d in str(defines_option).split(",") if d]
+        defines = _list_option(options, "define")
+        include_dirs = _list_option(options, "include")
+        module_option = options.get("module")
+        if module_option is not None and not isinstance(module_option, str):
+            raise ValueError(f"option 'module' must be a module name string, got: {module_option!r}")
 
-        tree_json = parse_sv(source_path, defines)
-        module_node = find_module(tree_json)
+        tree_json = parse_sv(source_path, defines, include_dirs)
+        module_node = find_module(tree_json, module_option or None)
         header = module_node.get("header", {})
         module_name = extract_module_name(header)
         params = extract_parameters(header)

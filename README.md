@@ -105,12 +105,25 @@ A small JSON file supplies what can't be inferred from the SV source alone:
   component's register map. It is compiled with `systemrdl-compiler`, converted with
   `peakrdl-ipxact`, and merged in as the component's `memory_maps`.
 
-`--option define=SYM1,SYM2` (or `defines=[...]` when calling `import_` directly) predefines
-preprocessor symbols before parsing.
+### Options
+
+Given as `--option name=value` on the CLI, or as keyword arguments to `import_`:
+
+- `metadata` (required): path to the metadata file.
+- `define`: preprocessor symbols to predefine before parsing, `--option define=SYM1,SYM2=4`
+  on the CLI or `define=["SYM1", "SYM2=4"]` in Python.
+- `include`: directories to search for `` `include `` files, in addition to the `.sv` file's
+  own directory, `--option include=rtl/include,rtl/pkg` or `include=["rtl/include", ...]`.
+- `module`: name of the module to import. Required when the file declares more than one
+  module.
+
+Paths given in options are relative to the current directory. Any SystemVerilog error
+reported while parsing (syntax error, include file not found, unknown macro) raises a
+`ValueError` with its file and line, instead of importing a partially parsed module.
 
 ## Design notes
 
-- **Three independent stages**, each targeting `ipxact-compiler` dataclasses directly rather
+- **Four independent stages**, each targeting `ipxact-compiler` dataclasses directly rather
   than XML: `sv_parser.py` parses the module header into plain dicts, `component_builder.py`
   turns those into `ipxact.Port`/`ipxact.Parameter`/the component's `Model`,
   `bus_interfaces.py` builds `ipxact.BusInterface` from the metadata's `busInterfaces`, and

@@ -1,5 +1,5 @@
 ipxact-compiler>=0.2.0
 xactflow>=0.3.0
-pyslang>=10.0.0
+pyslang>=11.0.0
 systemrdl-compiler>=1.32.2
 peakrdl-ipxact>=3.5.0
