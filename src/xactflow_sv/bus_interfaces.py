@@ -34,7 +34,7 @@ _ENTRY_KEYS = ("bus", "mode", "ports", "interfacePort", "memoryMap", "group", "m
 
 
 def _mode(value: object) -> Optional[ipxact.InterfaceMode]:
-    return _MODE_MAP.get(str(value).lower()) if isinstance(value, str) else None
+    return _MODE_MAP.get(value.lower()) if isinstance(value, str) else None
 
 
 def _parse_vlnv(vlnv: object, what: str) -> ipxact.VLNVRef:

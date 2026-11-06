@@ -238,3 +238,24 @@ def test_unknown_metadata_key_raises(tmp_path):
 
     with pytest.raises(ValueError, match="unknown key\\(s\\) registerfile"):
         SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
+
+
+def test_metadata_that_is_not_an_object_raises(tmp_path):
+    bad_metadata = tmp_path / "list.json"
+    bad_metadata.write_text('[{"vendor": "Vendor", "library": "Library"}]')
+
+    with pytest.raises(ValueError, match="must contain a JSON object, got: list"):
+        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
+
+
+def test_list_option_values_are_stripped(tmp_path):
+    (tmp_path / "inc").mkdir()
+    (tmp_path / "inc" / "defs.svh").write_text("`define DW 16\n")
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text('`include "defs.svh"\nmodule m (input logic [`DW-1:0] data);\nendmodule\n')
+    metadata = tmp_path / "m_ipxact.json"
+    metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
+
+    # " inc" with its leading space would not be found as an include directory.
+    component = SVImporter().import_(sv_file, metadata=str(metadata), include=f"other, {tmp_path / 'inc'}")
+    assert component.model.ports[0].wire.vectors[0].left == ipxact.Expression("16-1")

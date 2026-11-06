@@ -1,4 +1,4 @@
-__version__ = "0.1.2"
+__version__ = "0.2.0"
 
 import json
 from pathlib import Path
@@ -24,9 +24,9 @@ def _list_option(options: dict, name: str) -> list[str]:
     if value is None:
         return []
     if isinstance(value, str):
-        return [v for v in value.split(",") if v]
+        value = value.split(",")
     if isinstance(value, (list, tuple)) and all(isinstance(v, str) for v in value):
-        return [v for v in value if v]
+        return [v.strip() for v in value if v.strip()]
     raise ValueError(f"option '{name}' must be a comma-separated string or a list of strings, got: {value!r}")
 
 
@@ -51,6 +51,10 @@ class SVImporter(Importer):
             raise ValueError("missing required option 'metadata' (path to the IP-XACT metadata JSON file)")
         metadata_path = Path(options["metadata"])  # resolved relative to the CWD
         metadata = json.loads(metadata_path.read_text())
+        if not isinstance(metadata, dict):
+            raise ValueError(
+                f"metadata file {metadata_path} must contain a JSON object, got: {type(metadata).__name__}"
+            )
 
         # A misspelled key would otherwise be silently ignored, dropping what it describes.
         unknown = [key for key in metadata if key not in _METADATA_KEYS]

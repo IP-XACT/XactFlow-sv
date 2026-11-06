@@ -274,6 +274,7 @@ def test_parameter_data_type_keeps_signing_and_implicit_base_type(tmp_path):
         "  parameter signed [3:0] IMPL = 3,\n"
         "  parameter [7:0] IMPL_RANGE = 3,\n"
         "  parameter IMPL_NONE = 3,\n"
+        "  parameter signed IMPL_SIGNED = -3,\n"
         "  parameter int unsigned U = 1\n"
         ") (input logic clk);\nendmodule\n",
     )
@@ -283,6 +284,7 @@ def test_parameter_data_type_keeps_signing_and_implicit_base_type(tmp_path):
         "IMPL": "logic signed [3:0]",
         "IMPL_RANGE": "logic [7:0]",
         "IMPL_NONE": "int",
+        "IMPL_SIGNED": "int signed",
         "U": "int unsigned",
     }
 
@@ -338,3 +340,31 @@ def test_port_type_without_bit_width_raises_not_implemented(tmp_path, data_type,
 
     with pytest.raises(NotImplementedError, match=f"port 'a' has data type '{data_type}' \\({kind}\\)"):
         extract_ports(_header(sv_file))
+
+
+def test_port_without_direction_and_type_takes_the_previous_port_header(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text(
+        "module m (\n"
+        "  input logic [7:0] a, b, input int c, d, input apb_req_t r1, r2,\n"
+        "  apb_if.slave s0, s1, input wire [3:0] w0, w1,\n"
+        "  output logic [3:0] e [2], f, output g\n"
+        ");\nendmodule\n"
+    )
+
+    ports_by_name = {p["name"]: p for p in extract_ports(_header(sv_file))}
+    for first, second in [("a", "b"), ("c", "d"), ("r1", "r2"), ("s0", "s1"), ("w0", "w1")]:
+        assert ports_by_name[second] == {**ports_by_name[first], "name": second}
+    # The data type is inherited, not the unpacked dimensions of the previous declarator.
+    assert ports_by_name["f"]["packed_dims"] == [("3", "0")]
+    assert ports_by_name["f"]["unpacked_dims"] == []
+    # A port with its own direction does not inherit the previous data type.
+    assert ports_by_name["g"]["packed_dims"] == []
+
+
+def test_duplicate_module_names_raise(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m (input logic x);\nendmodule\nmodule m (input logic y);\nendmodule\n")
+
+    with pytest.raises(ValueError, match="declares module\\(s\\) m more than once"):
+        find_module(parse_sv(sv_file, []), "m")

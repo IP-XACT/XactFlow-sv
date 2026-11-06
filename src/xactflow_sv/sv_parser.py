@@ -2,8 +2,9 @@
 
 Uses pyslang to parse the file into a SyntaxTree, then reads the tree as JSON. Only the
 module's parameters and ports are read (the header, plus the body parameters when there is
-no parameter port list), with no elaboration, no symbol resolution, no package loading. Types, values, and dimension expressions are taken
-verbatim from the source text, matching how IP-XACT's own expression model treats them.
+no parameter port list), with no elaboration, no symbol resolution, no package loading.
+Types, values, and dimension expressions are taken verbatim from the source text, matching
+how IP-XACT's own expression model treats them.
 """
 
 from __future__ import annotations
@@ -44,7 +45,12 @@ def find_module(tree_json: dict, module_name: Optional[str] = None) -> dict:
     if not modules:
         raise ValueError("no module declaration found in input file")
 
-    by_name = {extract_module_name(m.get("header", {})): m for m in modules}
+    names = [extract_module_name(m.get("header", {})) for m in modules]
+    duplicates = sorted({name for name in names if names.count(name) > 1})
+    if duplicates:
+        raise ValueError(f"input file declares module(s) {', '.join(duplicates)} more than once")
+
+    by_name = dict(zip(names, modules))
     if module_name is not None:
         if module_name not in by_name:
             raise ValueError(f"module '{module_name}' not found in input file, found: {', '.join(by_name)}")
@@ -118,9 +124,11 @@ def _type_text(type_node: dict) -> str:
     The string is the type keyword, then the signing, then the packed dimensions, e.g.
     'int', 'int unsigned', 'bit signed [3:0]', 'logic [3:0]', 'my_pkg::my_t'.
     A parameter with no type keyword:
-    - gets 'logic' when it has a signing or a range (`parameter signed [3:0] P` gives
+    - gets 'logic' when it has a range (`parameter signed [3:0] P` gives
       'logic signed [3:0]'),
-    - gets 'int' otherwise (`parameter P = 3`).
+    - gets 'int' otherwise, plus its signing if any (`parameter P = 3` gives 'int',
+      `parameter signed P = 3` gives 'int signed'). Per the SV LRM, such a parameter takes the
+      range of its final value, which is 'int' for the usual unsized literal.
     """
     if not type_node:
         return "int"  # implicit type, SV default is int for parameter
@@ -136,8 +144,8 @@ def _type_text(type_node: dict) -> str:
         kw = _text(type_node.get("keyword", {})) if kind != "ImplicitType" else "logic"
         signing = _text(type_node.get("signing"))
         dims = "".join(f"[{left}:{right}]" for left, right in _extract_dims(type_node))
-        if kind == "ImplicitType" and not signing and not dims:
-            return "int"
+        if kind == "ImplicitType" and not dims:
+            return f"int {signing}".strip()
         return " ".join(part for part in (kw, signing, dims) if part)
 
     if kind in ("NamedType", "ScopedType"):
@@ -239,6 +247,17 @@ _INTEGER_TYPE_WIDTHS = {
 _DIMENSIONED_TYPE_KINDS = ("LogicType", "BitType", "RegType", "ImplicitType", "NamedType", "ScopedType", None)
 
 
+def _is_bare_port_header(port_header: dict) -> bool:
+    """True for a port header with no direction, no net/var keyword and no data type."""
+    data_type = port_header.get("dataType", {})
+    return (
+        port_header.get("kind") == "VariablePortHeader"
+        and set(port_header) <= {"kind", "dataType"}
+        and data_type.get("kind") == "ImplicitType"
+        and set(data_type) == {"kind"}
+    )
+
+
 def _extract_dims(node: dict, allow_size_shorthand: bool = False) -> list[tuple[str, str]]:
     """Return the (left, right) dimensions listed in `node`'s 'dimensions' field.
     """
@@ -260,6 +279,9 @@ def extract_ports(header: dict) -> list[dict]:
     # Carry the last seen direction across ports that omit it (ANSI implicit). Per the SV
     # LRM, a direction-less port with no preceding port defaults to inout, not in.
     last_direction = "inout"
+    # Per the SV LRM, a port with no direction, port kind or data type (`b` in
+    # `input logic [7:0] a, b`) takes all of them from the port before it.
+    last_header = None
 
     for port in ports_node.get("ports", []):
         kind = port.get("kind")
@@ -273,6 +295,9 @@ def extract_ports(header: dict) -> list[dict]:
             )
 
         port_header = port.get("header", {})
+        if last_header is not None and _is_bare_port_header(port_header):
+            port_header = last_header
+        last_header = port_header
         declarator = port.get("declarator", {})
         name = _text(declarator.get("name", {}))
 
