@@ -21,26 +21,26 @@ def test_build_memory_maps_from_rdl_file():
     address_block = memory_map.items[0]
     assert isinstance(address_block, ipxact.AddressBlock)
     assert address_block.name == "basic_regs"
-    assert address_block.base_address == "'h0"
-    assert address_block.range == "'h8"
-    assert address_block.width == "32"
+    assert address_block.base_address.value == "'h0"
+    assert address_block.range.value == "'h8"
+    assert address_block.width.value == "32"
 
     registers_by_name = {r.name: r for r in address_block.registers}
     assert set(registers_by_name) == {"CTRL", "STATUS"}
 
     ctrl = registers_by_name["CTRL"]
-    assert ctrl.address_offset == "'h0"
-    assert ctrl.size == "32"
+    assert ctrl.address_offset.value == "'h0"
+    assert ctrl.size.value == "32"
     assert len(ctrl.fields) == 1
 
     assert ctrl.description == "control register"
 
     ctrl_field = ctrl.fields[0]
     assert ctrl_field.name == "value"
-    assert ctrl_field.bit_offset == "0"
-    assert ctrl_field.bit_width == "8"
+    assert ctrl_field.bit_offset.value == "0"
+    assert ctrl_field.bit_width.value == "8"
     assert ctrl_field.description == "the value"
-    assert ctrl_field.resets == [ipxact.Reset(value="'h0")]
+    assert ctrl_field.resets == [ipxact.Reset(value=ipxact.Expression("'h0"))]
     assert ctrl_field.field_access_policies == [
         ipxact.FieldAccessPolicy(access=ipxact.AccessType.READ_WRITE)
     ]

@@ -43,11 +43,11 @@ out on its own, so getting an actual IP-XACT XML file also needs an exporter, li
 [`xactflow-component`](https://github.com/IP-XACT/XactFlow-component). Once both are installed,
 the importer registers itself under the `xactflow.importers` entry point group as `sv`, so
 it can run as one XactFlow CLI command, `--then` chaining straight into the exporter
-in the same process (requires `xactflow>=0.1.1`):
+in the same process:
 
 ```bash
 xactflow sv my_module.sv --option metadata=my_module_ipxact.json --then component --output out/
-# writes out/<name>.xml
+# writes out/<vendor>_<library>_<name>_<version>.xml
 ```
 
 Or as a library, e.g. to inspect or modify the `Component` before exporting it:
@@ -64,7 +64,7 @@ component.model.ports     # list[Port]
 component.bus_interfaces  # list[BusInterface]
 component.memory_maps     # list[MemoryMap]
 
-ComponentExporter().export(component, Path("out"))  # writes out/<name>.xml
+ComponentExporter().export(component, Path("out"))  # writes out/<vendor>_<library>_<name>_<version>.xml
 ```
 
 Only the SystemVerilog module header (parameters and ports) is inspected, with no elaboration,

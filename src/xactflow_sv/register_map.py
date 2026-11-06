@@ -48,6 +48,11 @@ def _text(el: ET.Element, local: str) -> Optional[str]:
     return child.text if child is not None else None
 
 
+def _expr(el: ET.Element, local: str) -> Optional[ipxact.Expression]:
+    text = _text(el, local)
+    return ipxact.Expression(text) if text is not None else None
+
+
 def _require_no_array(el: ET.Element, what: str) -> None:
     if el.find(_tag("dim")) is not None:
         raise NotImplementedError(f"{what} is an array, which is not yet supported")
@@ -90,12 +95,12 @@ def _build_field_access_policy(field_el: ET.Element) -> list[ipxact.FieldAccessP
 def _build_field(field_el: ET.Element) -> ipxact.Field:
     _require_present(field_el, f"field '{_text(field_el, 'name')}'")
     resets = [
-        ipxact.Reset(value=_text(reset_el, "value"))
+        ipxact.Reset(value=_expr(reset_el, "value"))
         for reset_el in field_el.findall(f"{_tag('resets')}/{_tag('reset')}")
     ]
     enumerated_values = [
         ipxact.EnumeratedValue(
-            name=_text(enum_el, "name"), value=_text(enum_el, "value"), **_name_group(enum_el)
+            name=_text(enum_el, "name"), value=_expr(enum_el, "value"), **_name_group(enum_el)
         )
         for enum_el in field_el.findall(f"{_tag('enumeratedValues')}/{_tag('enumeratedValue')}")
     ]
@@ -103,8 +108,8 @@ def _build_field(field_el: ET.Element) -> ipxact.Field:
 
     return ipxact.Field(
         name=_text(field_el, "name"),
-        bit_offset=_text(field_el, "bitOffset"),
-        bit_width=_text(field_el, "bitWidth"),
+        bit_offset=_expr(field_el, "bitOffset"),
+        bit_width=_expr(field_el, "bitWidth"),
         volatile=(volatile == "true") if volatile is not None else None,
         resets=resets,
         field_access_policies=_build_field_access_policy(field_el),
@@ -122,8 +127,8 @@ def _build_registers(parent_el: ET.Element) -> list:
             items.append(
                 ipxact.Register(
                     name=_text(child, "name"),
-                    address_offset=_text(child, "addressOffset"),
-                    size=_text(child, "size"),
+                    address_offset=_expr(child, "addressOffset"),
+                    size=_expr(child, "size"),
                     fields=[_build_field(fe) for fe in child.findall(_tag("field"))],
                     **_name_group(child),
                 )
@@ -134,8 +139,8 @@ def _build_registers(parent_el: ET.Element) -> list:
             items.append(
                 ipxact.RegisterFile(
                     name=_text(child, "name"),
-                    address_offset=_text(child, "addressOffset"),
-                    range=_text(child, "range"),
+                    address_offset=_expr(child, "addressOffset"),
+                    range=_expr(child, "range"),
                     registers=_build_registers(child),
                     **_name_group(child),
                 )
@@ -149,9 +154,9 @@ def _build_address_block(block_el: ET.Element) -> ipxact.AddressBlock:
     access = _text(block_el, "access")
     return ipxact.AddressBlock(
         name=_text(block_el, "name"),
-        base_address=_text(block_el, "baseAddress"),
-        range=_text(block_el, "range"),
-        width=_text(block_el, "width"),
+        base_address=_expr(block_el, "baseAddress"),
+        range=_expr(block_el, "range"),
+        width=_expr(block_el, "width"),
         usage=ipxact.UsageType(usage) if usage is not None else None,
         access_policies=[ipxact.AccessPolicy(access=ipxact.AccessType(access))] if access is not None else [],
         registers=_build_registers(block_el),

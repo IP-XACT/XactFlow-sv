@@ -22,7 +22,7 @@ def test_import_plain_wire_ports_module():
             views=[
                 ipxact.View(
                     name="rtl",
-                    env_identifiers=["::"],
+                    env_identifiers=[ipxact.TextValue("::")],
                     component_instantiation_ref="adder_rtl",
                 )
             ],
@@ -34,21 +34,21 @@ def test_import_plain_wire_ports_module():
                     name="a",
                     wire=ipxact.WirePort(
                         direction=ipxact.Direction.IN,
-                        vectors=[ipxact.Vector(left="7", right="0")],
+                        vectors=[ipxact.Vector(left=ipxact.Expression("7"), right=ipxact.Expression("0"))],
                     ),
                 ),
                 ipxact.Port(
                     name="b",
                     wire=ipxact.WirePort(
                         direction=ipxact.Direction.IN,
-                        vectors=[ipxact.Vector(left="7", right="0")],
+                        vectors=[ipxact.Vector(left=ipxact.Expression("7"), right=ipxact.Expression("0"))],
                     ),
                 ),
                 ipxact.Port(
                     name="o",
                     wire=ipxact.WirePort(
                         direction=ipxact.Direction.OUT,
-                        vectors=[ipxact.Vector(left="8", right="0")],
+                        vectors=[ipxact.Vector(left=ipxact.Expression("8"), right=ipxact.Expression("0"))],
                     ),
                 ),
             ],
@@ -66,17 +66,21 @@ def test_import_module_with_parameter():
 
     assert component.vlnv == ipxact.VLNV("Vendor", "Library", "apb_gpio", "1.0")
     assert component.parameters == [
-        ipxact.Parameter(name="DATA_W", value="8", resolve="user", parameter_id="DATA_W")
+        ipxact.Parameter(name="DATA_W", value=ipxact.Expression("8"), resolve="user", parameter_id="DATA_W")
     ]
 
     module_params = component.model.component_instantiations[0].module_parameters
     assert module_params == [
-        ipxact.ModuleParameter(name="DATA_W", value="DATA_W", data_type="int")
+        ipxact.ModuleParameter(name="DATA_W", value=ipxact.Expression("DATA_W"), data_type="int")
     ]
 
     ports_by_name = {p.name: p for p in component.model.ports}
-    assert ports_by_name["pwdata"].wire.vectors == [ipxact.Vector(left="DATA_W-1", right="0")]
-    assert ports_by_name["paddr"].wire.vectors == [ipxact.Vector(left="3", right="0")]
+    assert ports_by_name["pwdata"].wire.vectors == [
+        ipxact.Vector(left=ipxact.Expression("DATA_W-1"), right=ipxact.Expression("0"))
+    ]
+    assert ports_by_name["paddr"].wire.vectors == [
+        ipxact.Vector(left=ipxact.Expression("3"), right=ipxact.Expression("0"))
+    ]
     assert ports_by_name["pclk"].wire.vectors == []
 
 
@@ -133,7 +137,7 @@ def test_import_interface_array_port():
 
     port = component.model.ports[0]
     assert port.name == "apb"
-    assert port.arrays == [ipxact.ArrayBound(left="3", right="0")]
+    assert port.arrays == [ipxact.ArrayBound(left=ipxact.Expression("3"), right=ipxact.Expression("0"))]
 
 
 def test_import_unpacked_array_port():
@@ -143,9 +147,15 @@ def test_import_unpacked_array_port():
     )
 
     ports_by_name = {p.name: p for p in component.model.ports}
-    assert ports_by_name["mem"].arrays == [ipxact.ArrayBound(left="0", right="15")]
-    assert ports_by_name["mem_sized"].arrays == [ipxact.ArrayBound(left="(16)-1", right="0")]
-    assert ports_by_name["ways"].arrays == [ipxact.ArrayBound(left="(NumWays)-1", right="0")]
+    assert ports_by_name["mem"].arrays == [
+        ipxact.ArrayBound(left=ipxact.Expression("0"), right=ipxact.Expression("15"))
+    ]
+    assert ports_by_name["mem_sized"].arrays == [
+        ipxact.ArrayBound(left=ipxact.Expression("(16)-1"), right=ipxact.Expression("0"))
+    ]
+    assert ports_by_name["ways"].arrays == [
+        ipxact.ArrayBound(left=ipxact.Expression("(NumWays)-1"), right=ipxact.Expression("0"))
+    ]
 
 
 def test_import_missing_metadata_field_raises(tmp_path):
