@@ -14,7 +14,12 @@ import ipxact
 
 def _build_module_parameters(params: list[dict]) -> list[ipxact.ModuleParameter]:
     return [
-        ipxact.ModuleParameter(name=p["name"], value=ipxact.Expression(p["name"]), data_type=p["dataType"])
+        ipxact.ModuleParameter(
+            name=p["name"],
+            value=ipxact.Expression(p["name"]),
+            data_type=p["dataType"],
+            arrays=_build_arrays(p["arrays"]),
+        )
         for p in params
     ]
 
@@ -22,7 +27,11 @@ def _build_module_parameters(params: list[dict]) -> list[ipxact.ModuleParameter]
 def _build_parameters(params: list[dict]) -> list[ipxact.Parameter]:
     return [
         ipxact.Parameter(
-            name=p["name"], value=ipxact.Expression(p["value"] or "0"), resolve="user", parameter_id=p["name"]
+            name=p["name"],
+            value=ipxact.Expression(p["value"]),
+            resolve="user",
+            parameter_id=p["name"],
+            arrays=_build_arrays(p["arrays"]),
         )
         for p in params
     ]

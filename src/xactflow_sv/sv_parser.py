@@ -113,10 +113,14 @@ def _range_bounds(dim: dict, allow_size_shorthand: bool = False) -> tuple[str, s
 
 
 def _type_text(type_node: dict) -> str:
-    """Return a parameter's data type string as written in the source.
+    """Return a parameter's data type as a string, built from the source text.
 
-    Walks the type node and collects the keyword plus any dimensions, e.g. 'int',
-    'bit', 'int unsigned', 'logic [3:0]', 'my_pkg::my_t'.
+    The string is the type keyword, then the signing, then the packed dimensions, e.g.
+    'int', 'int unsigned', 'bit signed [3:0]', 'logic [3:0]', 'my_pkg::my_t'.
+    A parameter with no type keyword:
+    - gets 'logic' when it has a signing or a range (`parameter signed [3:0] P` gives
+      'logic signed [3:0]'),
+    - gets 'int' otherwise (`parameter P = 3`).
     """
     if not type_node:
         return "int"  # implicit type, SV default is int for parameter
@@ -128,17 +132,13 @@ def _type_text(type_node: dict) -> str:
         signing = _text(type_node.get("signing")) if "signing" in type_node else ""
         return (kw + " " + signing).strip()
 
-    if kind in ("LogicType", "BitType", "RegType"):
-        kw = _text(type_node.get("keyword", {}))
-        dims = type_node.get("dimensions", [])
-        if dims:
-            dim_str = "".join(
-                f"[{_range_bounds(d)[0]}:{_range_bounds(d)[1]}]"
-                for d in dims
-                if d.get("kind") == "VariableDimension"
-            )
-            return f"{kw} {dim_str}".strip()
-        return kw
+    if kind in ("LogicType", "BitType", "RegType", "ImplicitType"):
+        kw = _text(type_node.get("keyword", {})) if kind != "ImplicitType" else "logic"
+        signing = _text(type_node.get("signing"))
+        dims = "".join(f"[{left}:{right}]" for left, right in _extract_dims(type_node))
+        if kind == "ImplicitType" and not signing and not dims:
+            return "int"
+        return " ".join(part for part in (kw, signing, dims) if part)
 
     if kind in ("NamedType", "ScopedType"):
         return _text(type_node)
@@ -159,42 +159,59 @@ def extract_module_name(header: dict) -> str:
     return _text(header.get("name", {}))
 
 
-def extract_parameters(header: dict) -> list[dict]:
-    """Return a list of parameter dicts with keys: name, dataType, value.
+def extract_parameters(header: dict, members: Optional[list[dict]] = None) -> list[dict]:
+    """Return the module's overridable parameters, as dicts: name, dataType, value, arrays.
 
-    Only 'parameter' keywords are included; 'localparam' nodes are skipped.
+    Following the SV LRM:
+    - If the module has a parameter port list (`#(...)`), only that list is read. A
+      declaration without a keyword takes the keyword of the one before it, and the first
+      one defaults to 'parameter'. Body parameters are then local, so they are ignored.
+    - Otherwise, the 'parameter' declarations of the module body (`members`) are read.
+
+    'localparam' declarations are always skipped.
     """
     params_node = header.get("parameters")
-    if not params_node:
-        return []
+    if params_node:
+        declarations = params_node.get("declarations", [])
+    else:
+        declarations = [
+            m.get("parameter", {}) for m in members or [] if m.get("kind") == "ParameterDeclarationStatement"
+        ]
 
     result = []
-    for decl in params_node.get("declarations", []):
+    keyword = "ParameterKeyword"  # a first declaration without a keyword is a parameter
+    for decl in declarations:
         kind = decl.get("kind")
         if kind not in ("ParameterDeclaration", "TypeParameterDeclaration"):
             continue
 
-        kw_kind = decl.get("keyword", {}).get("kind", "")
-        if kw_kind == "LocalParamKeyword":
+        keyword = decl.get("keyword", {}).get("kind") or keyword
+        if keyword == "LocalParamKeyword":
             continue
 
         if kind == "TypeParameterDeclaration":
             for ta in decl.get("declarators", []):
                 if ta.get("kind") != "TypeAssignment":
                     continue
-                name = _text(ta.get("name"))
-                value = _value_text(ta)
-                result.append({"name": name, "dataType": "type", "value": value})
+                result.append(_parameter(ta, "type", arrays=[]))
         else:
             dtype = _type_text(decl.get("type"))
             for d in decl.get("declarators", []):
                 if d.get("kind") != "Declarator":
                     continue
-                name = _text(d.get("name"))
-                value = _value_text(d)
-                result.append({"name": name, "dataType": dtype, "value": value})
+                result.append(_parameter(d, dtype, arrays=_extract_dims(d, allow_size_shorthand=True)))
 
     return result
+
+
+def _parameter(declarator: dict, data_type: str, arrays: list[tuple[str, str]]) -> dict:
+    name = _text(declarator.get("name"))
+    value = _value_text(declarator)
+    # A parameter without a default must be overridden by every instance, there is no value
+    # to give the component parameter, and making one up would be silently wrong.
+    if not value:
+        raise NotImplementedError(f"parameter '{name}' has no default value, which is not yet supported")
+    return {"name": name, "dataType": data_type, "value": value, "arrays": arrays}
 
 
 # Map SV direction keyword kinds to IP-XACT direction strings.

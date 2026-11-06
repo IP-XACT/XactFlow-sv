@@ -203,3 +203,15 @@ def test_module_option_selects_the_module(tmp_path):
 
     with pytest.raises(ValueError, match="option 'module' must be a module name string"):
         SVImporter().import_(sv_file, metadata=str(metadata), module=["top"])
+
+
+def test_array_parameter_has_arrays_on_both_parameters(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m #(parameter int ARR [2] = '{1, 2}) (input logic clk);\nendmodule\n")
+    metadata = tmp_path / "m_ipxact.json"
+    metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
+
+    component = SVImporter().import_(sv_file, metadata=str(metadata))
+    arrays = [ipxact.ArrayBound(left=ipxact.Expression("(2)-1"), right=ipxact.Expression("0"))]
+    assert component.parameters[0].arrays == arrays
+    assert component.model.component_instantiations[0].module_parameters[0].arrays == arrays

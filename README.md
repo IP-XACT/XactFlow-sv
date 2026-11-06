@@ -145,6 +145,10 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
   A direction-less first port defaults to `inout`, per the SystemVerilog LRM.
 - **Indexed part-select dimensions are not supported**, e.g. `[base+:width]`/`[base-:width]`.
   Only a plain `[left:right]` range is.
+- **A parameter without a default value is not supported** (`parameter int N` or
+  `parameter type T` with no `= ...`), as there is no value to give the component parameter.
+  Parameters are read from the parameter port list (`#(...)`), or from the module body when
+  the module has none, `localparam`s being skipped, per the SystemVerilog LRM.
 - **Register/register file arrays are not supported.**
 - **A `registerFile` defining an `addrmap` that is never used under the chosen top-level
   `addrmap` is rejected**, rather than silently ignored as SystemRDL itself would. A reusable

@@ -52,7 +52,7 @@ def test_extract_module_name_and_plain_wire_ports():
 def test_extract_parameters_with_parametric_vector_width():
     header = _header(FIXTURES / "apb_gpio" / "apb_gpio.sv")
 
-    assert extract_parameters(header) == [{"name": "DATA_W", "dataType": "int", "value": "8"}]
+    assert extract_parameters(header) == [{"name": "DATA_W", "dataType": "int", "value": "8", "arrays": []}]
 
     ports_by_name = {p["name"]: p for p in extract_ports(header)}
     assert ports_by_name["pwdata"]["packed_dims"] == [("DATA_W-1", "0")]
@@ -209,3 +209,89 @@ def test_unknown_module_name_raises(tmp_path):
 
     with pytest.raises(ValueError, match="module 'top' not found in input file, found: helper"):
         find_module(parse_sv(sv_file, []), "top")
+
+
+def _parameters(tmp_path, source: str) -> list[dict]:
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text(source)
+    module_node = find_module(parse_sv(sv_file, []))
+    return extract_parameters(module_node.get("header", {}), module_node.get("members", []))
+
+
+def test_parameter_without_keyword_after_localparam_is_local(tmp_path):
+    params = _parameters(
+        tmp_path,
+        "module m #(\n  parameter int P = 1,\n  localparam int L = 4,\n  int A = 5\n) (input logic clk);\nendmodule\n",
+    )
+
+    # Per the SV LRM, 'A' takes the 'localparam' keyword of the declaration before it.
+    assert [p["name"] for p in params] == ["P"]
+
+
+def test_first_parameter_without_keyword_is_a_parameter(tmp_path):
+    params = _parameters(tmp_path, "module m #(int A = 5, localparam int L = 4) (input logic clk);\nendmodule\n")
+
+    assert [p["name"] for p in params] == ["A"]
+
+
+def test_body_parameters_without_parameter_port_list(tmp_path):
+    params = _parameters(
+        tmp_path,
+        "module m (input logic clk);\n"
+        "  parameter int WIDTH = 8, DEPTH = 4;\n"
+        "  localparam int L = 1;\n"
+        "  parameter type T = logic;\n"
+        "endmodule\n",
+    )
+
+    assert [(p["name"], p["dataType"], p["value"]) for p in params] == [
+        ("WIDTH", "int", "8"),
+        ("DEPTH", "int", "4"),
+        ("T", "type", "logic"),
+    ]
+
+
+def test_body_parameters_are_local_with_a_parameter_port_list(tmp_path):
+    params = _parameters(
+        tmp_path, "module m #(parameter int P = 1) (input logic clk);\n  parameter int B = 2;\nendmodule\n"
+    )
+
+    # With a parameter port list, the SV LRM makes a body 'parameter' a localparam.
+    assert [p["name"] for p in params] == ["P"]
+
+
+@pytest.mark.parametrize("declaration", ["parameter int N", "parameter type T"])
+def test_parameter_without_default_raises_not_implemented(tmp_path, declaration):
+    with pytest.raises(NotImplementedError, match="has no default value"):
+        _parameters(tmp_path, f"module m #({declaration}) (input logic clk);\nendmodule\n")
+
+
+def test_parameter_data_type_keeps_signing_and_implicit_base_type(tmp_path):
+    params = _parameters(
+        tmp_path,
+        "module m #(\n"
+        "  parameter bit signed [3:0] SB = -2,\n"
+        "  parameter signed [3:0] IMPL = 3,\n"
+        "  parameter [7:0] IMPL_RANGE = 3,\n"
+        "  parameter IMPL_NONE = 3,\n"
+        "  parameter int unsigned U = 1\n"
+        ") (input logic clk);\nendmodule\n",
+    )
+
+    assert {p["name"]: p["dataType"] for p in params} == {
+        "SB": "bit signed [3:0]",
+        "IMPL": "logic signed [3:0]",
+        "IMPL_RANGE": "logic [7:0]",
+        "IMPL_NONE": "int",
+        "U": "int unsigned",
+    }
+
+
+def test_parameter_unpacked_dimensions(tmp_path):
+    params = _parameters(
+        tmp_path,
+        "module m #(parameter int ARR [2] = '{1, 2}, parameter int RNG [0:3] = '{0, 1, 2, 3}) "
+        "(input logic clk);\nendmodule\n",
+    )
+
+    assert {p["name"]: p["arrays"] for p in params} == {"ARR": [("(2)-1", "0")], "RNG": [("0", "3")]}

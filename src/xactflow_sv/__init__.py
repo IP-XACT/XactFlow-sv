@@ -66,7 +66,7 @@ class SVImporter(Importer):
         module_node = find_module(tree_json, module_option or None)
         header = module_node.get("header", {})
         module_name = extract_module_name(header)
-        params = extract_parameters(header)
+        params = extract_parameters(header, module_node.get("members", []))
         ports = extract_ports(header)
 
         bus_interfaces_meta = metadata.get("busInterfaces") or {}
