@@ -145,6 +145,9 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
   A direction-less first port defaults to `inout`, per the SystemVerilog LRM.
 - **Indexed part-select dimensions are not supported**, e.g. `[base+:width]`/`[base-:width]`.
   Only a plain `[left:right]` range is.
+- **Ports with a data type that has no bit width are not supported**: `real`, `shortreal`,
+  `realtime`, `string`, `chandle`, `event`. Built-in integer types get their width as a
+  vector, e.g. `int` gives `[31:0]` and `byte` gives `[7:0]`.
 - **A parameter without a default value is not supported** (`parameter int N` or
   `parameter type T` with no `= ...`), as there is no value to give the component parameter.
   Parameters are read from the parameter port list (`#(...)`), or from the module body when

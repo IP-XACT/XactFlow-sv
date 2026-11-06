@@ -295,3 +295,46 @@ def test_parameter_unpacked_dimensions(tmp_path):
     )
 
     assert {p["name"]: p["arrays"] for p in params} == {"ARR": [("(2)-1", "0")], "RNG": [("0", "3")]}
+
+
+def test_integer_type_ports_get_their_width(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text(
+        "module m (\n"
+        "  input byte a_byte, input shortint a_shortint, input int a_int, input int unsigned a_uint,\n"
+        "  input integer a_integer, input longint a_longint, input time a_time,\n"
+        "  output int a_int_arr [2]\n"
+        ");\nendmodule\n"
+    )
+
+    ports_by_name = {p["name"]: p for p in extract_ports(_header(sv_file))}
+    assert {name: p["packed_dims"] for name, p in ports_by_name.items()} == {
+        "a_byte": [("7", "0")],
+        "a_shortint": [("15", "0")],
+        "a_int": [("31", "0")],
+        "a_uint": [("31", "0")],
+        "a_integer": [("31", "0")],
+        "a_longint": [("63", "0")],
+        "a_time": [("63", "0")],
+        "a_int_arr": [("31", "0")],
+    }
+    assert ports_by_name["a_int_arr"]["unpacked_dims"] == [("(2)-1", "0")]
+
+
+@pytest.mark.parametrize(
+    "data_type, kind",
+    [
+        ("real", "RealType"),
+        ("shortreal", "ShortRealType"),
+        ("realtime", "RealTimeType"),
+        ("string", "StringType"),
+        ("chandle", "CHandleType"),
+        ("event", "EventType"),
+    ],
+)
+def test_port_type_without_bit_width_raises_not_implemented(tmp_path, data_type, kind):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text(f"module m (input {data_type} a);\nendmodule\n")
+
+    with pytest.raises(NotImplementedError, match=f"port 'a' has data type '{data_type}' \\({kind}\\)"):
+        extract_ports(_header(sv_file))

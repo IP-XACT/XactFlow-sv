@@ -215,3 +215,18 @@ def test_array_parameter_has_arrays_on_both_parameters(tmp_path):
     arrays = [ipxact.ArrayBound(left=ipxact.Expression("(2)-1"), right=ipxact.Expression("0"))]
     assert component.parameters[0].arrays == arrays
     assert component.model.component_instantiations[0].module_parameters[0].arrays == arrays
+
+
+def test_integer_type_port_is_exported_with_its_width(tmp_path):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m (input int a, output byte b);\nendmodule\n")
+    metadata = tmp_path / "m_ipxact.json"
+    metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
+
+    ports_by_name = {p.name: p for p in SVImporter().import_(sv_file, metadata=str(metadata)).model.ports}
+    assert ports_by_name["a"].wire.vectors == [
+        ipxact.Vector(left=ipxact.Expression("31"), right=ipxact.Expression("0"))
+    ]
+    assert ports_by_name["b"].wire.vectors == [
+        ipxact.Vector(left=ipxact.Expression("7"), right=ipxact.Expression("0"))
+    ]

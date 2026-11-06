@@ -223,6 +223,22 @@ _DIRECTION_MAP = {
 }
 
 
+# Bit width of the SV built-in integer types, which have no packed dimensions to read it from.
+_INTEGER_TYPE_WIDTHS = {
+    "ByteType": 8,
+    "ShortIntType": 16,
+    "IntType": 32,
+    "IntegerType": 32,
+    "LongIntType": 64,
+    "TimeType": 64,
+}
+
+# Port data type kinds whose width is given by their packed dimensions (none means 1 bit),
+# or is unknown without elaboration for a struct/typedef reference. An empty kind is a port
+# with no data type at all.
+_DIMENSIONED_TYPE_KINDS = ("LogicType", "BitType", "RegType", "ImplicitType", "NamedType", "ScopedType", None)
+
+
 def _extract_dims(node: dict, allow_size_shorthand: bool = False) -> list[tuple[str, str]]:
     """Return the (left, right) dimensions listed in `node`'s 'dimensions' field.
     """
@@ -284,7 +300,17 @@ def extract_ports(header: dict) -> list[dict]:
             continue
 
         data_type = port_header.get("dataType", {})
-        packed_dims = _extract_dims(data_type)
+        type_kind = data_type.get("kind")
+        if type_kind in _INTEGER_TYPE_WIDTHS:
+            packed_dims = [(str(_INTEGER_TYPE_WIDTHS[type_kind] - 1), "0")]
+        elif type_kind in _DIMENSIONED_TYPE_KINDS:
+            packed_dims = _extract_dims(data_type)
+        else:
+            # e.g. real, string, chandle, event: no bit width, so no IP-XACT wire vector.
+            raise NotImplementedError(
+                f"port '{name}' has data type '{_text(data_type)}' ({type_kind}), which is not yet "
+                "supported, only integer, vector and struct/typedef types are"
+            )
         unpacked_dims = _extract_dims(declarator, allow_size_shorthand=True)
 
         # A NamedType/ScopedType base (e.g. 'apb_req_t', 'my_pkg::my_req_t', or a
