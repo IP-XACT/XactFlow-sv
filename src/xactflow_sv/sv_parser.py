@@ -1,8 +1,8 @@
-"""sv_parser.py: parse a SystemVerilog module header into plain dicts.
+"""sv_parser.py: read a SystemVerilog module's parameters and ports into plain dicts.
 
 Uses pyslang to parse the file into a SyntaxTree, then reads the tree as JSON. Only the
-module header is inspected (parameters and ports), with no elaboration, no symbol
-resolution, no package loading. Types, values, and dimension expressions are taken
+module's parameters and ports are read (the header, plus the body parameters when there is
+no parameter port list), with no elaboration, no symbol resolution, no package loading. Types, values, and dimension expressions are taken
 verbatim from the source text, matching how IP-XACT's own expression model treats them.
 """
 

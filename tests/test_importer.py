@@ -230,3 +230,11 @@ def test_integer_type_port_is_exported_with_its_width(tmp_path):
     assert ports_by_name["b"].wire.vectors == [
         ipxact.Vector(left=ipxact.Expression("7"), right=ipxact.Expression("0"))
     ]
+
+
+def test_unknown_metadata_key_raises(tmp_path):
+    bad_metadata = tmp_path / "typo.json"
+    bad_metadata.write_text('{"vendor": "Vendor", "library": "Library", "registerfile": "regs.rdl"}')
+
+    with pytest.raises(ValueError, match="unknown key\\(s\\) registerfile"):
+        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))

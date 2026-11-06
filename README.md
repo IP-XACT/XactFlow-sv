@@ -67,9 +67,30 @@ component.memory_maps     # list[MemoryMap]
 ComponentExporter().export(component, Path("out"))  # writes out/<vendor>_<library>_<name>_<version>.xml
 ```
 
-Only the SystemVerilog module header (parameters and ports) is inspected, with no elaboration,
-no package loading, no symbol resolution: types, values, and dimension expressions are taken
-verbatim from the source text, matching how IP-XACT's own expression model treats them.
+Only the module's parameters and ports are read (from its header, and its body parameters when
+it has no parameter port list), with no elaboration, no package loading, no symbol resolution:
+types, values, and dimension expressions are taken verbatim from the source text, matching how
+IP-XACT's own expression model treats them.
+
+### Generated component
+
+- **VLNV**: vendor, library and version from the metadata file, name from the module.
+- **Model**: one view `rtl` referencing one component instantiation `<module>_rtl`, with
+  `language` `systemverilog` and `moduleName` the module name.
+- **Parameters**: each overridable SV parameter gives a component `parameter` (with
+  `parameterId` and `resolve="user"`, holding the default value) and a `moduleParameter`
+  whose value references that `parameterId`, so a design override reaches the HDL module.
+  The `moduleParameter`'s `dataType` is the SV type as written (`int`, `logic [7:0]`,
+  `type` for a type parameter, ...), and unpacked dimensions become `arrays` on both.
+- **Ports**:
+  - a vector or scalar port is a `wire` port, its packed dimensions giving the `vectors`.
+    Built-in integer types get their width, e.g. `int` gives `[31:0]`;
+  - a struct/typedef-typed port is a `structured` port of type `struct`, with the type name
+    in `structPortTypeDefs` (its width is not known without elaboration);
+  - an SV `interface` port is a `structured` port of type `interface`, with the interface
+    name and its modport as role;
+  - unpacked dimensions become `arrays`, `[N]` giving `[(N)-1:0]`.
+- **Bus interfaces** and **memory maps**: from the metadata file, see below.
 
 ### Metadata file
 
@@ -84,7 +105,8 @@ A small JSON file supplies what can't be inferred from the SV source alone:
         "apb": {
             "bus": "Vendor:Library:apb4:1.0",
             "mode": "target",
-            "ports": {"PSEL": "psel", "PADDR": "bus_req_i.paddr"}
+            "ports": {"PSEL": "psel", "PADDR": "bus_req_i.paddr"},
+            "memoryMap": "register_map_mmap"
         }
     },
     "registerFile": "register_map.rdl"
@@ -93,17 +115,37 @@ A small JSON file supplies what can't be inferred from the SV source alone:
 
 - `vendor`/`library` are required, `version` defaults to `"1.0"`. The component's `name` always
   comes from the parsed module name, not from this file.
-- `busInterfaces` maps a bus interface name to its bus VLNV, mode (`initiator`/`target`, or
-  `master`/`slave`), and either a `ports` mapping of logical bus signal names onto physical SV
-  port names, or an `interfacePort` naming a genuine SV `interface`-typed port that already
-  groups its own signals. A `ports` value can be a plain port name or a dotted `port.field`
-  reference into a struct-typed port (e.g. `bus_req_i.paddr`). The abstraction definition is
-  derived by convention as `<bus-def-name>_rtl` at the same vendor/library/version as `bus`.
-  Every `interface`-typed port in the module must be described this way; there is no fallback
-  guess for its bus VLNV or mode.
-- `registerFile` is a path, relative to the metadata file, to a SystemRDL file describing the
-  component's register map. It is compiled with `systemrdl-compiler`, converted with
-  `peakrdl-ipxact`, and merged in as the component's `memory_maps`.
+- `busInterfaces` maps a bus interface name to its bus VLNV, mode, and either a `ports`
+  mapping of logical bus signal names onto physical SV port names, or an `interfacePort`
+  naming a genuine SV `interface`-typed port that already groups its own signals. A `ports`
+  value can be a plain port name or a dotted `port.field` reference into a struct-typed port
+  (e.g. `bus_req_i.paddr`). For a `ports` mapping, the abstraction definition is derived by
+  convention as `<bus-def-name>_rtl` at the same vendor/library/version as `bus`. Every
+  `interface`-typed port in the module must be described this way; there is no fallback guess
+  for its bus VLNV or mode.
+- `mode` is one of (case-insensitive):
+
+  | mode | also accepted | extra keys |
+  |---|---|---|
+  | `initiator` | `master` | |
+  | `target` | `slave` | `memoryMap` (optional) |
+  | `system` | | `group` (required) |
+  | `mirroredInitiator` | `mirroredMaster` | |
+  | `mirroredTarget` | `mirroredSlave` | |
+  | `mirroredSystem` | | `group` (required) |
+  | `monitor` | | `monitoredMode` (required), `group` (required if `monitoredMode` is a system mode) |
+
+  `group` is the system group name from the bus definition. `monitoredMode` is the mode of
+  the interface the monitor watches, any mode but `monitor`.
+- `memoryMap` names the memory map a target interface gives access to. When the component has
+  exactly one target interface and one memory map, that target references it by default.
+- `registerFile` is a path (absolute, or relative to the metadata file) to a SystemRDL file
+  describing the component's register map. It is compiled with `systemrdl-compiler`,
+  converted with `peakrdl-ipxact`, and merged in as the component's `memory_maps`. Its memory
+  map is named `<addrmap name>_mmap`.
+
+Any other key, at the top level or in a `busInterfaces` entry, raises a `ValueError`, so a
+misspelled key is not silently ignored.
 
 ### Options
 
@@ -124,8 +166,8 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
 ## Design notes
 
 - **Four independent stages**, each targeting `ipxact-compiler` dataclasses directly rather
-  than XML: `sv_parser.py` parses the module header into plain dicts, `component_builder.py`
-  turns those into `ipxact.Port`/`ipxact.Parameter`/the component's `Model`,
+  than XML: `sv_parser.py` reads the module's parameters and ports into plain dicts,
+  `component_builder.py` turns those into `ipxact.Port`/`ipxact.Parameter`/the component's `Model`,
   `bus_interfaces.py` builds `ipxact.BusInterface` from the metadata's `busInterfaces`, and
   `register_map.py` builds `ipxact.MemoryMap` from a SystemRDL file.
 - **`register_map.py` reads `peakrdl-ipxact`'s own XML output, not through
@@ -143,8 +185,9 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
 - **Explicit ANSI ports** (`.name(expr)` syntax) **and non-ANSI port lists** (`module m(a, b);
   input a; ...`) **are not supported.** Only implicit ANSI-style ports are.
   A direction-less first port defaults to `inout`, per the SystemVerilog LRM.
-- **Indexed part-select dimensions are not supported**, e.g. `[base+:width]`/`[base-:width]`.
-  Only a plain `[left:right]` range is.
+- **Only `[left:right]` dimensions are supported**, plus the `[N]` size shorthand on an unpacked
+  dimension. Indexed part-selects (`[base+:width]`/`[base-:width]`), queues (`[$]`), dynamic
+  arrays (`[]`) and a zero size (`[0]`) raise an error.
 - **Ports with a data type that has no bit width are not supported**: `real`, `shortreal`,
   `realtime`, `string`, `chandle`, `event`. Built-in integer types get their width as a
   vector, e.g. `int` gives `[31:0]` and `byte` gives `[7:0]`.

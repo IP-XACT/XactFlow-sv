@@ -266,3 +266,100 @@ def test_bus_interface_unknown_mode_raises(tmp_path):
 
     with pytest.raises(ValueError, match="unknown mode"):
         SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+
+
+def _import_with_bus_interfaces(tmp_path, bus_interfaces, register_file=True):
+    sv_file = tmp_path / "m.sv"
+    sv_file.write_text("module m (input logic psel, input logic penable, output logic pready);\nendmodule\n")
+    metadata = {"vendor": "Vendor", "library": "Library", "busInterfaces": bus_interfaces}
+    if register_file:
+        metadata["registerFile"] = str(FIXTURES / "basic_regs" / "basic_regs.rdl")
+    metadata_path = tmp_path / "meta.json"
+    metadata_path.write_text(json.dumps(metadata))
+    return SVImporter().import_(sv_file, metadata=str(metadata_path))
+
+
+def _entry(mode, **extra):
+    return {"bus": "Vendor:Library:apb4:1.0", "mode": mode, "ports": {"PSEL": "psel"}, **extra}
+
+
+def test_target_references_the_memory_map_named_by_memory_map(tmp_path):
+    component = _import_with_bus_interfaces(
+        tmp_path, {"s0": _entry("target", memoryMap="basic_regs_mmap"), "s1": _entry("target")}
+    )
+
+    targets = {b.name: b.target for b in component.bus_interfaces}
+    assert targets == {
+        "s0": ipxact.TargetInterface(memory_map_ref="basic_regs_mmap"),
+        "s1": ipxact.TargetInterface(),
+    }
+
+
+def test_single_target_references_the_single_memory_map_by_default(tmp_path):
+    component = _import_with_bus_interfaces(tmp_path, {"s": _entry("target"), "m": _entry("initiator")})
+
+    targets = {b.name: b.target for b in component.bus_interfaces}
+    assert targets == {"s": ipxact.TargetInterface(memory_map_ref="basic_regs_mmap"), "m": None}
+
+
+def test_target_has_no_memory_map_without_register_file(tmp_path):
+    component = _import_with_bus_interfaces(tmp_path, {"s": _entry("target")}, register_file=False)
+
+    assert component.bus_interfaces[0].target == ipxact.TargetInterface()
+
+
+@pytest.mark.parametrize(
+    "entry, error",
+    [
+        (
+            _entry("target", memoryMap="nope"),
+            "memoryMap 'nope' is not a memory map of the component \\(found: basic_regs_mmap\\)",
+        ),
+        (_entry("initiator", memoryMap="basic_regs_mmap"), "'memoryMap' is only for a target interface"),
+        (_entry("target", prots={}), "unknown key\\(s\\) prots"),
+        (_entry("system"), "a system interface needs a 'group'"),
+        (_entry("mirroredSystem"), "a system interface needs a 'group'"),
+        (_entry("monitor"), "a monitor needs a 'monitoredMode'"),
+        (_entry("monitor", monitoredMode="monitor"), "a monitor needs a 'monitoredMode'"),
+        (_entry("monitor", monitoredMode="system"), "a system interface needs a 'group'"),
+        (_entry("target", monitoredMode="target"), "'monitoredMode' is only for a monitor"),
+        (_entry("target", group="g"), "'group' is only for a system, mirroredSystem or monitor interface"),
+        (_entry("system", group=""), "'group' must be a non-empty string"),
+    ],
+)
+def test_invalid_bus_interface_keys_raise(tmp_path, entry, error):
+    with pytest.raises(ValueError, match=error):
+        _import_with_bus_interfaces(tmp_path, {"apb": entry})
+
+
+def test_memory_map_without_register_file_raises(tmp_path):
+    with pytest.raises(ValueError, match="memoryMap 'basic_regs_mmap' .* \\(found: none, no registerFile is set\\)"):
+        _import_with_bus_interfaces(tmp_path, {"s": _entry("target", memoryMap="basic_regs_mmap")}, register_file=False)
+
+
+@pytest.mark.parametrize(
+    "entry, field, value",
+    [
+        (_entry("system", group="g"), "system", ipxact.SystemInterface(group="g")),
+        (_entry("mirroredInitiator"), "mirrored_initiator", ipxact.MirroredInitiatorInterface()),
+        (_entry("mirroredMaster"), "mirrored_initiator", ipxact.MirroredInitiatorInterface()),
+        (_entry("mirroredTarget"), "mirrored_target", ipxact.MirroredTargetInterface()),
+        (_entry("mirroredSlave"), "mirrored_target", ipxact.MirroredTargetInterface()),
+        (_entry("mirroredSystem", group="g"), "mirrored_system", ipxact.SystemInterface(group="g")),
+        (
+            _entry("monitor", monitoredMode="target"),
+            "monitor",
+            ipxact.MonitorInterface(interface_mode=ipxact.InterfaceMode.TARGET),
+        ),
+        (
+            _entry("monitor", monitoredMode="mirroredSystem", group="g"),
+            "monitor",
+            ipxact.MonitorInterface(interface_mode=ipxact.InterfaceMode.MIRRORED_SYSTEM, group="g"),
+        ),
+    ],
+)
+def test_other_bus_interface_modes(tmp_path, entry, field, value):
+    bus_interface = _import_with_bus_interfaces(tmp_path, {"apb": entry}).bus_interfaces[0]
+
+    assert getattr(bus_interface, field) == value
+    assert bus_interface.initiator is None and bus_interface.target is None

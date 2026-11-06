@@ -5,10 +5,13 @@ from pathlib import Path
 
 from xactflow import Importer
 
-from .bus_interfaces import build_bus_interface, validate_bus_interfaces
+from .bus_interfaces import build_bus_interfaces, validate_bus_interfaces
 from .component_builder import build_component
 from .register_map import build_memory_maps
 from .sv_parser import extract_module_name, extract_parameters, extract_ports, find_module, parse_sv
+
+# Accepted top-level keys of the metadata file.
+_METADATA_KEYS = ("vendor", "library", "version", "busInterfaces", "registerFile")
 
 
 def _list_option(options: dict, name: str) -> list[str]:
@@ -49,6 +52,14 @@ class SVImporter(Importer):
         metadata_path = Path(options["metadata"])  # resolved relative to the CWD
         metadata = json.loads(metadata_path.read_text())
 
+        # A misspelled key would otherwise be silently ignored, dropping what it describes.
+        unknown = [key for key in metadata if key not in _METADATA_KEYS]
+        if unknown:
+            raise ValueError(
+                f"metadata file {metadata_path} has unknown key(s) {', '.join(unknown)} "
+                f"(expected: {', '.join(_METADATA_KEYS)})"
+            )
+
         try:
             vendor = metadata["vendor"]
             library = metadata["library"]
@@ -69,12 +80,6 @@ class SVImporter(Importer):
         params = extract_parameters(header, module_node.get("members", []))
         ports = extract_ports(header)
 
-        bus_interfaces_meta = metadata.get("busInterfaces") or {}
-        validate_bus_interfaces(bus_interfaces_meta, ports)
-        bus_interfaces = [
-            build_bus_interface(name, iface) for name, iface in bus_interfaces_meta.items()
-        ]
-
         register_file = metadata.get("registerFile")
         if register_file is not None and not (isinstance(register_file, str) and register_file):
             raise ValueError(f"metadata file 'registerFile' must be a non-empty path string, got: {register_file!r}")
@@ -83,6 +88,11 @@ class SVImporter(Importer):
             if register_file
             else []
         )
+        memory_map_names = [memory_map.name for memory_map in memory_maps]
+
+        bus_interfaces_meta = metadata.get("busInterfaces") or {}
+        validate_bus_interfaces(bus_interfaces_meta, ports, memory_map_names)
+        bus_interfaces = build_bus_interfaces(bus_interfaces_meta, memory_map_names)
 
         return build_component(
             module_name, vendor, library, version, params, ports, bus_interfaces, memory_maps
