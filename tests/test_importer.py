@@ -3,15 +3,23 @@ from pathlib import Path
 import ipxact
 import pytest
 
-from xactflow import evaluate, parameter_resolver
+from xactflow import Library, evaluate, parameter_resolver
 from xactflow_sv import SVImporter
 from xactflow_sv.component_builder import _build_port
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _import(source_path, **options):
+    """Run SVImporter into an empty library and return the one component it added."""
+    library = Library()
+    SVImporter().import_(source_path, library, **options)
+    (component,) = library.targets()
+    return component
+
+
 def test_import_plain_wire_ports_module():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "adder" / "adder.sv",
         metadata=str(FIXTURES / "adder" / "adder_ipxact.json"),
     )
@@ -59,7 +67,7 @@ def test_import_plain_wire_ports_module():
 
 
 def test_import_module_with_parameter():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "apb_gpio" / "apb_gpio.sv",
         metadata=str(FIXTURES / "apb_gpio" / "apb_gpio_ipxact.json"),
     )
@@ -85,7 +93,7 @@ def test_import_module_with_parameter():
 
 
 def test_imported_parameters_are_cross_referenceable_by_name():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "apb_gpio" / "apb_gpio.sv",
         metadata=str(FIXTURES / "apb_gpio" / "apb_gpio_ipxact.json"),
     )
@@ -96,7 +104,7 @@ def test_imported_parameters_are_cross_referenceable_by_name():
 
 
 def test_import_struct_port():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "struct_port" / "struct_port.sv",
         metadata=str(FIXTURES / "struct_port" / "ipxact.json"),
     )
@@ -130,7 +138,7 @@ def test_interface_port_without_modport_has_no_role():
 
 
 def test_import_interface_array_port():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "unsupported" / "interface_array_port.sv",
         metadata=str(FIXTURES / "unsupported" / "interface_array_port_ipxact.json"),
     )
@@ -141,7 +149,7 @@ def test_import_interface_array_port():
 
 
 def test_import_unpacked_array_port():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "unsupported" / "unpacked_port.sv",
         metadata=str(FIXTURES / "unsupported" / "ipxact.json"),
     )
@@ -163,7 +171,7 @@ def test_import_missing_metadata_field_raises(tmp_path):
     bad_metadata.write_text('{"vendor": "Vendor"}')
 
     with pytest.raises(ValueError, match="library"):
-        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
+        _import(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
 
 
 def _write_ifdef_module(tmp_path):
@@ -180,7 +188,7 @@ def _write_ifdef_module(tmp_path):
 def test_define_option_as_string_or_list(tmp_path, define):
     sv_file, metadata = _write_ifdef_module(tmp_path)
 
-    component = SVImporter().import_(sv_file, metadata=metadata, define=define)
+    component = _import(sv_file, metadata=metadata, define=define)
     assert component.model.ports[0].wire.vectors[0].left == ipxact.Expression("31")
 
 
@@ -189,7 +197,7 @@ def test_list_option_of_wrong_type_raises(tmp_path, name, value):
     sv_file, metadata = _write_ifdef_module(tmp_path)
 
     with pytest.raises(ValueError, match=f"option '{name}' must be a comma-separated string or a list"):
-        SVImporter().import_(sv_file, metadata=metadata, **{name: value})
+        _import(sv_file, metadata=metadata, **{name: value})
 
 
 def test_module_option_selects_the_module(tmp_path):
@@ -198,11 +206,11 @@ def test_module_option_selects_the_module(tmp_path):
     metadata = tmp_path / "m_ipxact.json"
     metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
 
-    component = SVImporter().import_(sv_file, metadata=str(metadata), module="top")
+    component = _import(sv_file, metadata=str(metadata), module="top")
     assert component.vlnv.name == "top"
 
     with pytest.raises(ValueError, match="option 'module' must be a module name string"):
-        SVImporter().import_(sv_file, metadata=str(metadata), module=["top"])
+        _import(sv_file, metadata=str(metadata), module=["top"])
 
 
 def test_array_parameter_has_arrays_on_both_parameters(tmp_path):
@@ -211,7 +219,7 @@ def test_array_parameter_has_arrays_on_both_parameters(tmp_path):
     metadata = tmp_path / "m_ipxact.json"
     metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
 
-    component = SVImporter().import_(sv_file, metadata=str(metadata))
+    component = _import(sv_file, metadata=str(metadata))
     arrays = [ipxact.ArrayBound(left=ipxact.Expression("(2)-1"), right=ipxact.Expression("0"))]
     assert component.parameters[0].arrays == arrays
     assert component.model.component_instantiations[0].module_parameters[0].arrays == arrays
@@ -223,7 +231,7 @@ def test_integer_type_port_is_exported_with_its_width(tmp_path):
     metadata = tmp_path / "m_ipxact.json"
     metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
 
-    ports_by_name = {p.name: p for p in SVImporter().import_(sv_file, metadata=str(metadata)).model.ports}
+    ports_by_name = {p.name: p for p in _import(sv_file, metadata=str(metadata)).model.ports}
     assert ports_by_name["a"].wire.vectors == [
         ipxact.Vector(left=ipxact.Expression("31"), right=ipxact.Expression("0"))
     ]
@@ -237,7 +245,7 @@ def test_unknown_metadata_key_raises(tmp_path):
     bad_metadata.write_text('{"vendor": "Vendor", "library": "Library", "registerfile": "regs.rdl"}')
 
     with pytest.raises(ValueError, match="unknown key\\(s\\) registerfile"):
-        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
+        _import(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
 
 
 def test_metadata_that_is_not_an_object_raises(tmp_path):
@@ -245,7 +253,7 @@ def test_metadata_that_is_not_an_object_raises(tmp_path):
     bad_metadata.write_text('[{"vendor": "Vendor", "library": "Library"}]')
 
     with pytest.raises(ValueError, match="must contain a JSON object, got: list"):
-        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
+        _import(FIXTURES / "adder" / "adder.sv", metadata=str(bad_metadata))
 
 
 def test_list_option_values_are_stripped(tmp_path):
@@ -257,5 +265,34 @@ def test_list_option_values_are_stripped(tmp_path):
     metadata.write_text('{"vendor": "Vendor", "library": "Library"}')
 
     # " inc" with its leading space would not be found as an include directory.
-    component = SVImporter().import_(sv_file, metadata=str(metadata), include=f"other, {tmp_path / 'inc'}")
+    component = _import(sv_file, metadata=str(metadata), include=f"other, {tmp_path / 'inc'}")
     assert component.model.ports[0].wire.vectors[0].left == ipxact.Expression("16-1")
+
+
+def test_import_adds_component_as_target_and_keeps_existing_documents():
+    other = ipxact.Component(vlnv=ipxact.VLNV("Vendor", "Library", "other", "1.0"))
+    library = Library()
+    library.add(other)
+
+    SVImporter().import_(
+        FIXTURES / "adder" / "adder.sv", library, metadata=str(FIXTURES / "adder" / "adder_ipxact.json")
+    )
+
+    assert [component.vlnv.name for component in library.targets()] == ["adder"]
+    assert library.get(other.vlnv) is other
+    assert library.diagnostics == []
+
+
+def test_import_replaces_previous_output_of_same_vlnv():
+    # e.g. the component exported by a previous run, scanned from a --lib folder.
+    library = Library()
+    library.add(ipxact.Component(vlnv=ipxact.VLNV("Vendor", "Library", "adder", "1.0")))
+
+    SVImporter().import_(
+        FIXTURES / "adder" / "adder.sv", library, metadata=str(FIXTURES / "adder" / "adder_ipxact.json")
+    )
+
+    (component,) = library.documents()
+    assert component in library.targets()
+    assert [port.name for port in component.model.ports] == ["a", "b", "o"]
+    assert library.diagnostics == []

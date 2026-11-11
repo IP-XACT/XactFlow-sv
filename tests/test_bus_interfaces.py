@@ -4,13 +4,22 @@ from pathlib import Path
 import ipxact
 import pytest
 
+from xactflow import Library
 from xactflow_sv import SVImporter
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+def _import(source_path, **options):
+    """Run SVImporter into an empty library and return the one component it added."""
+    library = Library()
+    SVImporter().import_(source_path, library, **options)
+    (component,) = library.targets()
+    return component
+
+
 def test_discrete_ports_bus_interface_mapping():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "apb_gpio" / "apb_gpio.sv",
         metadata=str(FIXTURES / "apb_gpio" / "apb_gpio_bus_ipxact.json"),
     )
@@ -35,7 +44,7 @@ def test_discrete_ports_bus_interface_mapping():
 
 
 def test_struct_field_bus_interface_mapping():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "struct_port" / "struct_port.sv",
         metadata=str(FIXTURES / "struct_port" / "struct_port_bus_ipxact.json"),
     )
@@ -51,7 +60,7 @@ def test_struct_field_bus_interface_mapping():
 
 
 def test_interface_port_bus_interface_mapping():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "apb_target_interface" / "apb_target.sv",
         metadata=str(FIXTURES / "apb_target_interface" / "apb_target_ipxact.json"),
     )
@@ -76,7 +85,7 @@ def test_null_bus_interfaces_is_treated_as_absent(tmp_path):
     metadata_path = tmp_path / "meta.json"
     metadata_path.write_text(json.dumps(metadata))
 
-    component = SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
+    component = _import(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
     assert component.bus_interfaces == []
 
 
@@ -94,7 +103,7 @@ def test_interface_port_referenced_by_two_bus_interfaces_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="already referenced by another busInterfaces entry"):
-        SVImporter().import_(
+        _import(
             FIXTURES / "apb_target_interface" / "apb_target.sv", metadata=str(metadata_path)
         )
 
@@ -112,7 +121,7 @@ def test_null_ports_mapping_is_treated_as_empty(tmp_path):
     # No crash on the null "ports"; the module's interface port is simply left undescribed,
     # which is still an error, just not an AttributeError.
     with pytest.raises(ValueError, match="has no matching busInterfaces entry"):
-        SVImporter().import_(
+        _import(
             FIXTURES / "apb_target_interface" / "apb_target.sv", metadata=str(metadata_path)
         )
 
@@ -131,7 +140,7 @@ def test_discrete_ports_mapping_to_interface_port_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="SystemVerilog interface-typed port"):
-        SVImporter().import_(
+        _import(
             FIXTURES / "apb_target_interface" / "apb_target.sv", metadata=str(metadata_path)
         )
 
@@ -147,7 +156,7 @@ def test_bus_interface_with_neither_ports_nor_interface_port_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="has neither 'interfacePort' nor 'ports'"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_bus_interface_mapped_to_non_string_physical_port_raises(tmp_path):
@@ -163,7 +172,7 @@ def test_bus_interface_mapped_to_non_string_physical_port_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="not a physical port name string"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_bus_interface_with_null_bus_raises(tmp_path):
@@ -177,7 +186,7 @@ def test_bus_interface_with_null_bus_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="must be a 'vendor:library:name:version' VLNV string"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_bus_interface_with_ports_as_list_raises(tmp_path):
@@ -193,7 +202,7 @@ def test_bus_interface_with_ports_as_list_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="'ports' must be a"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_null_bus_interface_entry_raises(tmp_path):
@@ -207,7 +216,7 @@ def test_null_bus_interface_entry_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="entry must be an object"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_bus_interfaces_as_list_raises(tmp_path):
@@ -221,12 +230,12 @@ def test_bus_interfaces_as_list_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="'busInterfaces' must be a"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_interface_port_without_matching_bus_interface_raises():
     with pytest.raises(ValueError, match="has no matching busInterfaces entry"):
-        SVImporter().import_(
+        _import(
             FIXTURES / "apb_target_interface" / "apb_target.sv",
             metadata=str(FIXTURES / "apb_target_interface" / "apb_target_no_bus_ipxact.json"),
         )
@@ -249,7 +258,7 @@ def test_bus_interface_mapped_to_unknown_physical_port_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="does_not_exist"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def test_bus_interface_unknown_mode_raises(tmp_path):
@@ -265,7 +274,7 @@ def test_bus_interface_unknown_mode_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="unknown mode"):
-        SVImporter().import_(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "apb_gpio" / "apb_gpio.sv", metadata=str(metadata_path))
 
 
 def _import_with_bus_interfaces(tmp_path, bus_interfaces, register_file=True):
@@ -276,7 +285,7 @@ def _import_with_bus_interfaces(tmp_path, bus_interfaces, register_file=True):
         metadata["registerFile"] = str(FIXTURES / "basic_regs" / "basic_regs.rdl")
     metadata_path = tmp_path / "meta.json"
     metadata_path.write_text(json.dumps(metadata))
-    return SVImporter().import_(sv_file, metadata=str(metadata_path))
+    return _import(sv_file, metadata=str(metadata_path))
 
 
 def _entry(mode, **extra):

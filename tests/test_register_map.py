@@ -4,10 +4,19 @@ from pathlib import Path
 import ipxact
 import pytest
 
+from xactflow import Library
 from xactflow_sv import SVImporter
 from xactflow_sv.register_map import build_memory_maps
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def _import(source_path, **options):
+    """Run SVImporter into an empty library and return the one component it added."""
+    library = Library()
+    SVImporter().import_(source_path, library, **options)
+    (component,) = library.targets()
+    return component
 
 
 def test_build_memory_maps_from_rdl_file():
@@ -53,7 +62,7 @@ def test_build_memory_maps_from_rdl_file():
 
 
 def test_import_module_with_register_file():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "basic_regs" / "basic_regs.sv",
         metadata=str(FIXTURES / "basic_regs" / "basic_regs_ipxact.json"),
     )
@@ -65,7 +74,7 @@ def test_import_module_with_register_file():
 
 
 def test_import_module_without_register_file_has_no_memory_maps():
-    component = SVImporter().import_(
+    component = _import(
         FIXTURES / "adder" / "adder.sv", metadata=str(FIXTURES / "adder" / "adder_ipxact.json")
     )
 
@@ -155,7 +164,7 @@ def test_non_string_register_file_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="'registerFile' must be a non-empty path string"):
-        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
 
 
 def test_empty_string_register_file_raises(tmp_path):
@@ -164,7 +173,7 @@ def test_empty_string_register_file_raises(tmp_path):
     metadata_path.write_text(json.dumps(metadata))
 
     with pytest.raises(ValueError, match="'registerFile' must be a non-empty path string"):
-        SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
+        _import(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
 
 
 def test_register_file_path_is_resolved_relative_to_metadata_file(tmp_path):
@@ -173,5 +182,5 @@ def test_register_file_path_is_resolved_relative_to_metadata_file(tmp_path):
     metadata_path = tmp_path / "meta.json"
     metadata_path.write_text(json.dumps(metadata))
 
-    component = SVImporter().import_(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
+    component = _import(FIXTURES / "adder" / "adder.sv", metadata=str(metadata_path))
     assert len(component.memory_maps) == 1

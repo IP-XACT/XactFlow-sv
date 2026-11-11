@@ -1,15 +1,15 @@
 # xactflow-sv
 
 A [XactFlow](https://github.com/IP-XACT/XactFlow) importer plugin that reads a SystemVerilog
-module plus a JSON metadata file (and, optionally, a SystemRDL register map) and produces an
-`ipxact.Component` object, built on
+module plus a JSON metadata file (and, optionally, a SystemRDL register map) and adds the
+`ipxact.Component` it describes to a XactFlow `Library`, built on
 [`ipxact-compiler`](https://github.com/IP-XACT/ipxact-compiler)'s
 [IEEE 1685-2022](https://standards.ieee.org/ieee/1685/10307/) object model.
 
 `ipxact-compiler` parses IP-XACT and hands back Python objects; XactFlow's `Importer` interface
-is for the other direction, reading some non-IP-XACT source and producing that object model.
-This package is one such importer: it does not write XML itself, turning the resulting
-`Component` into a file is a separate exporter's job (see
+is for the other direction, reading some non-IP-XACT source and adding that object model to a
+`Library`. This package is one such importer: it does not write XML itself, turning the
+resulting `Component` into a file is a separate exporter's job (see
 [`xactflow-component`](https://github.com/IP-XACT/XactFlow-component)).
 
 The SystemVerilog parsing and metadata-driven design was informed by
@@ -38,33 +38,44 @@ Requires Python >= 3.9. Runtime dependencies beyond `ipxact-compiler`/`xactflow`
 
 ## Usage
 
-An importer's job stops at producing an `ipxact.Component` object; it does not write anything
-out on its own, so getting an actual IP-XACT XML file also needs an exporter, like
+An importer's job stops at adding an `ipxact.Component` to a XactFlow `Library`, as a target
+(`target=True`); it does not write anything out on its own, so getting an actual IP-XACT XML
+file also needs an exporter, like
 [`xactflow-component`](https://github.com/IP-XACT/XactFlow-component). Once both are installed,
 the importer registers itself under the `xactflow.importers` entry point group as `sv`, so
-it can run as one XactFlow CLI command, `--then` chaining straight into the exporter
-in the same process:
+it can run as one XactFlow CLI command, `--then` handing the same library straight to the
+exporter in the same process:
 
 ```bash
 xactflow sv my_module.sv --option metadata=my_module_ipxact.json --then component --output out/
 # writes out/<vendor>_<library>_<name>_<version>.xml
 ```
 
+`--lib DIR` adds the IP-XACT files under `DIR` to the library, e.g. the bus definitions the
+component refers to. The component is regenerated from its source, so it replaces a document of
+the same VLNV found there (`replace=True`), such as the output of a previous run, instead of
+being reported as an SCR 1.1 duplicate VLNV.
+
 Or as a library, e.g. to inspect or modify the `Component` before exporting it:
 
 ```python
 from pathlib import Path
 
+import ipxact
+from xactflow import Library
 from xactflow_sv import SVImporter
 from xactflow_component import ComponentExporter
 
-component = SVImporter().import_(Path("my_module.sv"), metadata="my_module_ipxact.json")
+library = Library()  # or Library.scan("path/to/ip/library")
+SVImporter().import_(Path("my_module.sv"), library, metadata="my_module_ipxact.json")
+
+(component,) = library.targets(ipxact.Component)
 component.vlnv            # VLNV
 component.model.ports     # list[Port]
 component.bus_interfaces  # list[BusInterface]
 component.memory_maps     # list[MemoryMap]
 
-ComponentExporter().export(component, Path("out"))  # writes out/<vendor>_<library>_<name>_<version>.xml
+ComponentExporter().export(library, Path("out"))  # writes out/<vendor>_<library>_<name>_<version>.xml
 ```
 
 Only the module's parameters and ports are read (from its header, and its body parameters when
@@ -149,7 +160,8 @@ misspelled key is not silently ignored.
 
 ### Options
 
-Given as `--option name=value` on the CLI, or as keyword arguments to `import_`:
+Given as `--option name=value` on the CLI, or as keyword arguments to `import_`, after the
+library:
 
 - `metadata` (required): path to the metadata file.
 - `define`: preprocessor symbols to predefine before parsing, `--option define=SYM1,SYM2=4`

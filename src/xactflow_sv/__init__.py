@@ -1,9 +1,9 @@
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 import json
 from pathlib import Path
 
-from xactflow import Importer
+from xactflow import Importer, Library
 
 from .bus_interfaces import build_bus_interfaces, validate_bus_interfaces
 from .component_builder import build_component
@@ -31,7 +31,11 @@ def _list_option(options: dict, name: str) -> list[str]:
 
 
 class SVImporter(Importer):
-    """Reads a SystemVerilog module plus a JSON metadata file into an ipxact.Component.
+    """Reads a SystemVerilog module plus a JSON metadata file into an ipxact.Component, added to
+    the library as a target.
+
+    The component is regenerated from its source, so it replaces any document of the same VLNV
+    already in the library, e.g. its previous output scanned from a --lib folder.
 
     The metadata file's "vendor" and "library" are required, "version" defaults to "1.0".
     "busInterfaces" is optional and maps a bus interface name to its bus/mode/port mapping,
@@ -46,7 +50,7 @@ class SVImporter(Importer):
 
     name = "sv"
 
-    def import_(self, source_path: Path, **options: object) -> object:
+    def import_(self, source_path: Path, library: Library, **options: object) -> None:
         if "metadata" not in options:
             raise ValueError("missing required option 'metadata' (path to the IP-XACT metadata JSON file)")
         metadata_path = Path(options["metadata"])  # resolved relative to the CWD
@@ -66,7 +70,7 @@ class SVImporter(Importer):
 
         try:
             vendor = metadata["vendor"]
-            library = metadata["library"]
+            library_name = metadata["library"]
         except KeyError as exc:
             raise ValueError(f"metadata file {metadata_path} is missing required field {exc}") from exc
         version = metadata.get("version", "1.0")
@@ -98,9 +102,10 @@ class SVImporter(Importer):
         validate_bus_interfaces(bus_interfaces_meta, ports, memory_map_names)
         bus_interfaces = build_bus_interfaces(bus_interfaces_meta, memory_map_names)
 
-        return build_component(
-            module_name, vendor, library, version, params, ports, bus_interfaces, memory_maps
+        component = build_component(
+            module_name, vendor, library_name, version, params, ports, bus_interfaces, memory_maps
         )
+        library.add(component, source_path, replace=True, target=True)
 
 
 __all__ = ["__version__", "SVImporter"]
