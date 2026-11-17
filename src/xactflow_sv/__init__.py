@@ -7,11 +7,12 @@ from xactflow import Importer, Library
 
 from .bus_interfaces import build_bus_interfaces, validate_bus_interfaces
 from .component_builder import build_component
+from .qualifiers import find_qualifiers
 from .register_map import build_memory_maps
 from .sv_parser import extract_module_name, extract_parameters, extract_ports, find_module, parse_sv
 
 # Accepted top-level keys of the metadata file.
-_METADATA_KEYS = ("vendor", "library", "version", "busInterfaces", "registerFile")
+_METADATA_KEYS = ("vendor", "library", "version", "busInterfaces", "registerFile", "clocks", "resets")
 
 
 def _list_option(options: dict, name: str) -> list[str]:
@@ -41,7 +42,9 @@ class SVImporter(Importer):
     "busInterfaces" is optional and maps a bus interface name to its bus/mode/port mapping,
     see bus_interfaces.py. "registerFile" is optional and is a path to a SystemRDL register
     map, resolved relative to the metadata file unless it is itself absolute, see
-    register_map.py.
+    register_map.py. "clocks" and "resets" are optional and list the clock/reset ports, given
+    their isClock/isReset qualifier; without them, they are detected from the port names, see
+    qualifiers.py.
 
     Options: "metadata" (required), "define" (preprocessor symbols), "include" (`include
     search directories, resolved relative to the CWD), and "module" (the module to import,
@@ -102,8 +105,10 @@ class SVImporter(Importer):
         validate_bus_interfaces(bus_interfaces_meta, ports, memory_map_names)
         bus_interfaces = build_bus_interfaces(bus_interfaces_meta, memory_map_names)
 
+        qualifiers = find_qualifiers(ports, metadata.get("clocks"), metadata.get("resets"))
+
         component = build_component(
-            module_name, vendor, library_name, version, params, ports, bus_interfaces, memory_maps
+            module_name, vendor, library_name, version, params, ports, bus_interfaces, memory_maps, qualifiers
         )
         library.add(component, source_path, replace=True, target=True)
 

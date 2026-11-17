@@ -100,7 +100,9 @@ IP-XACT's own expression model treats them.
     in `structPortTypeDefs` (its width is not known without elaboration);
   - an SV `interface` port is a `structured` port of type `interface`, with the interface
     name and its modport as role;
-  - unpacked dimensions become `arrays`, `[N]` giving `[(N)-1:0]`.
+  - unpacked dimensions become `arrays`, `[N]` giving `[(N)-1:0]`;
+  - a clock or reset wire port gets an `isClock` or `isReset` (with its `level`) qualifier,
+    see [Clocks and resets](#clocks-and-resets).
 - **Bus interfaces** and **memory maps**: from the metadata file, see below.
 
 ### Metadata file
@@ -120,7 +122,9 @@ A small JSON file supplies what can't be inferred from the SV source alone:
             "memoryMap": "register_map_mmap"
         }
     },
-    "registerFile": "register_map.rdl"
+    "registerFile": "register_map.rdl",
+    "clocks": ["clk_i"],
+    "resets": {"rst_ni": "low"}
 }
 ```
 
@@ -154,9 +158,36 @@ A small JSON file supplies what can't be inferred from the SV source alone:
   describing the component's register map. It is compiled with `systemrdl-compiler`,
   converted with `peakrdl-ipxact`, and merged in as the component's `memory_maps`. Its memory
   map is named `<addrmap name>_mmap`.
+- `clocks` lists the clock ports, and `resets` maps each reset port to its active level,
+  `low` or `high`. Both are optional, see [Clocks and resets](#clocks-and-resets).
 
 Any other key, at the top level or in a `busInterfaces` entry, raises a `ValueError`, so a
 misspelled key is not silently ignored.
+
+### Clocks and resets
+
+A clock port gets the `<ipxact:isClock>true</ipxact:isClock>` qualifier, and a reset port
+`<ipxact:isReset level="low">true</ipxact:isReset>` (or `level="high"`), e.g. for
+[`xactflow-archidesc`](https://github.com/IP-XACT/XactFlow-archidesc) to connect a design's
+clock and reset to every instance.
+
+The metadata file is the source of truth. When it has `clocks`, the clocks are exactly the
+ports it lists, and when it has `resets`, the resets are exactly the ports it lists, so
+`"clocks": []` turns clock detection off. A listed port must be a wire port, of any
+direction.
+
+Otherwise, an input wire port is detected from its name:
+
+| kind | names |
+|---|---|
+| clock | `clk`, `clk_i`, `clock`, `clock_i` |
+| active-low reset | `rst_n`, `rst_ni`, `arst_n`, `arst_ni`, `reset_n`, `reset_ni` |
+| active-high reset | `rst`, `rst_i`, `arst`, `arst_i`, `reset`, `reset_i` |
+
+The name may also have any `<prefix>_` before it (`sys_clk_i`), an uppercase letter or a
+number after it for a replicated signal (`clk_iA`/`clk_iB`/`clk_iC` in a TMR design, or
+`clk_0`), and any case (`CLK`, `RST_N`). Names that only contain one of these, such as
+`clk_en_i` or `pclk`, are not detected; list them in the metadata file.
 
 ### Options
 
@@ -177,11 +208,12 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
 
 ## Design notes
 
-- **Four independent stages**, each targeting `ipxact-compiler` dataclasses directly rather
+- **Independent stages**, each targeting `ipxact-compiler` dataclasses directly rather
   than XML: `sv_parser.py` reads the module's parameters and ports into plain dicts,
   `component_builder.py` turns those into `ipxact.Port`/`ipxact.Parameter`/the component's `Model`,
   `bus_interfaces.py` builds `ipxact.BusInterface` from the metadata's `busInterfaces`, and
-  `register_map.py` builds `ipxact.MemoryMap` from a SystemRDL file.
+  `register_map.py` builds `ipxact.MemoryMap` from a SystemRDL file. `qualifiers.py` finds
+  the clock and reset ports, from the metadata file or their names.
 - **`register_map.py` reads `peakrdl-ipxact`'s own XML output, not through
   `ipxact-compiler`'s parser.** `peakrdl-ipxact` only supports IEEE 1685-2014, while
   `ipxact-compiler` only supports IEEE 1685-2022. A namespace swap alone would silently lose

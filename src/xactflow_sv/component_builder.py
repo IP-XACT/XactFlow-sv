@@ -45,7 +45,7 @@ def _build_arrays(dims: list[tuple[str, str]]) -> list[ipxact.ArrayBound]:
     return [ipxact.ArrayBound(left=ipxact.Expression(left), right=ipxact.Expression(right)) for left, right in dims]
 
 
-def _build_port(port: dict) -> ipxact.Port:
+def _build_port(port: dict, qualifier: Optional[ipxact.Qualifier] = None) -> ipxact.Port:
     arrays = _build_arrays(port["unpacked_dims"])
 
     if port["is_interface"]:
@@ -77,7 +77,9 @@ def _build_port(port: dict) -> ipxact.Port:
     return ipxact.Port(
         name=port["name"],
         wire=ipxact.WirePort(
-            direction=ipxact.Direction(port["direction"]), vectors=_build_vectors(port["packed_dims"])
+            direction=ipxact.Direction(port["direction"]),
+            qualifier=qualifier,
+            vectors=_build_vectors(port["packed_dims"]),
         ),
         arrays=arrays,
     )
@@ -92,6 +94,7 @@ def build_component(
     ports: list[dict],
     bus_interfaces: Optional[list[ipxact.BusInterface]] = None,
     memory_maps: Optional[list[ipxact.MemoryMap]] = None,
+    qualifiers: Optional[dict[str, ipxact.Qualifier]] = None,
 ) -> ipxact.Component:
     instantiation_name = f"{module_name}_rtl"
 
@@ -111,7 +114,7 @@ def build_component(
                 module_parameters=_build_module_parameters(params),
             )
         ],
-        ports=[_build_port(port) for port in ports],
+        ports=[_build_port(port, (qualifiers or {}).get(port["name"])) for port in ports],
     )
 
     return ipxact.Component(
