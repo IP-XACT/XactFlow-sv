@@ -14,6 +14,15 @@ from .sv_parser import extract_module_name, extract_parameters, extract_ports, f
 # Accepted top-level keys of the metadata file.
 _METADATA_KEYS = ("vendor", "library", "version", "busInterfaces", "registerFile", "clocks", "resets")
 
+# Options that can be given instead of a metadata file, and the metadata key each one stands
+# for. "vlnv_" keeps "vlnv_library" apart from import_()'s own `library` argument.
+_METADATA_OPTIONS = {
+    "vlnv_vendor": "vendor",
+    "vlnv_library": "library",
+    "vlnv_version": "version",
+    "registerFile": "registerFile",
+}
+
 
 def _list_option(options: dict, name: str) -> list[str]:
     """Read option `name` as a list of strings.
@@ -31,6 +40,49 @@ def _list_option(options: dict, name: str) -> list[str]:
     raise ValueError(f"option '{name}' must be a comma-separated string or a list of strings, got: {value!r}")
 
 
+def _read_metadata(options: dict) -> tuple[dict, Path, str]:
+    """Return the metadata, the directory its "registerFile" is relative to, and where it comes
+    from for error messages.
+
+    It is read from the "metadata" file, or else built from the "vlnv_vendor", "vlnv_library",
+    "vlnv_version" and "registerFile" options, never from both, so that nothing is given twice with
+    different values.
+    """
+    given = [name for name in _METADATA_OPTIONS if name in options]
+    if "metadata" in options:
+        if given:
+            raise ValueError(
+                f"option(s) {', '.join(given)} cannot be used with option 'metadata', "
+                "give them in the metadata file instead"
+            )
+        metadata_path = Path(options["metadata"])  # resolved relative to the CWD
+        metadata = json.loads(metadata_path.read_text())
+        if not isinstance(metadata, dict):
+            raise ValueError(
+                f"metadata file {metadata_path} must contain a JSON object, got: {type(metadata).__name__}"
+            )
+
+        # A misspelled key would otherwise be silently ignored, dropping what it describes.
+        unknown = [key for key in metadata if key not in _METADATA_KEYS]
+        if unknown:
+            raise ValueError(
+                f"metadata file {metadata_path} has unknown key(s) {', '.join(unknown)} "
+                f"(expected: {', '.join(_METADATA_KEYS)})"
+            )
+        return metadata, metadata_path.parent, f"metadata file {metadata_path}"
+
+    for name in given:
+        if not isinstance(options[name], str):
+            raise ValueError(f"option '{name}' must be a string, got: {options[name]!r}")
+    missing = [name for name in ("vlnv_vendor", "vlnv_library") if name not in options]
+    if missing:
+        raise ValueError(
+            f"missing required option(s) {', '.join(missing)}, or option 'metadata' "
+            "(path to the IP-XACT metadata JSON file)"
+        )
+    return {_METADATA_OPTIONS[name]: options[name] for name in given}, Path("."), "options"  # resolved relative to the CWD
+
+
 class SVImporter(Importer):
     """Reads a SystemVerilog module plus a JSON metadata file into an ipxact.Component, added to
     the library as a target.
@@ -46,7 +98,10 @@ class SVImporter(Importer):
     their isClock/isReset qualifier; without them, they are detected from the port names, see
     qualifiers.py.
 
-    Options: "metadata" (required), "define" (preprocessor symbols), "include" (`include
+    Options: "metadata" (path to the metadata file), or instead "vlnv_vendor",
+    "vlnv_library", "vlnv_version" and "registerFile" (resolved relative to the CWD), which
+    then have the same meaning as the metadata file's "vendor", "library", "version" and
+    "registerFile". "define" (preprocessor symbols), "include" (`include
     search directories, resolved relative to the CWD), and "module" (the module to import,
     required when the file declares more than one).
     """
@@ -54,28 +109,13 @@ class SVImporter(Importer):
     name = "sv"
 
     def import_(self, source_path: Path, library: Library, **options: object) -> None:
-        if "metadata" not in options:
-            raise ValueError("missing required option 'metadata' (path to the IP-XACT metadata JSON file)")
-        metadata_path = Path(options["metadata"])  # resolved relative to the CWD
-        metadata = json.loads(metadata_path.read_text())
-        if not isinstance(metadata, dict):
-            raise ValueError(
-                f"metadata file {metadata_path} must contain a JSON object, got: {type(metadata).__name__}"
-            )
-
-        # A misspelled key would otherwise be silently ignored, dropping what it describes.
-        unknown = [key for key in metadata if key not in _METADATA_KEYS]
-        if unknown:
-            raise ValueError(
-                f"metadata file {metadata_path} has unknown key(s) {', '.join(unknown)} "
-                f"(expected: {', '.join(_METADATA_KEYS)})"
-            )
+        metadata, base_dir, where = _read_metadata(options)
 
         try:
             vendor = metadata["vendor"]
             library_name = metadata["library"]
         except KeyError as exc:
-            raise ValueError(f"metadata file {metadata_path} is missing required field {exc}") from exc
+            raise ValueError(f"{where} is missing required field {exc}") from exc
         version = metadata.get("version", "1.0")
 
         defines = _list_option(options, "define")
@@ -93,9 +133,9 @@ class SVImporter(Importer):
 
         register_file = metadata.get("registerFile")
         if register_file is not None and not (isinstance(register_file, str) and register_file):
-            raise ValueError(f"metadata file 'registerFile' must be a non-empty path string, got: {register_file!r}")
+            raise ValueError(f"{where}: 'registerFile' must be a non-empty path string, got: {register_file!r}")
         memory_maps = (
-            build_memory_maps(metadata_path.parent / register_file)
+            build_memory_maps(base_dir / register_file)
             if register_file
             else []
         )

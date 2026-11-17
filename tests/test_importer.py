@@ -296,3 +296,42 @@ def test_import_replaces_previous_output_of_same_vlnv():
     assert component in library.targets()
     assert [port.name for port in component.model.ports] == ["a", "b", "o"]
     assert library.diagnostics == []
+
+
+def test_vlnv_and_register_file_as_options_instead_of_metadata():
+    component = _import(
+        FIXTURES / "basic_regs" / "basic_regs.sv",
+        vlnv_vendor="Vendor",
+        vlnv_library="Library",
+        vlnv_version="2.0",
+        registerFile=str(FIXTURES / "basic_regs" / "basic_regs.rdl"),
+    )
+
+    assert component.vlnv == ipxact.VLNV("Vendor", "Library", "basic_regs", "2.0")
+    assert [memory_map.name for memory_map in component.memory_maps] == ["basic_regs_mmap"]
+
+
+def test_version_option_defaults_to_1_0():
+    component = _import(FIXTURES / "adder" / "adder.sv", vlnv_vendor="Vendor", vlnv_library="Library")
+
+    assert component.vlnv == ipxact.VLNV("Vendor", "Library", "adder", "1.0")
+
+
+def test_metadata_with_vlnv_options_raises():
+    with pytest.raises(ValueError, match="option\\(s\\) vlnv_vendor, vlnv_version cannot be used with option 'metadata'"):
+        _import(
+            FIXTURES / "adder" / "adder.sv",
+            metadata=str(FIXTURES / "adder" / "adder_ipxact.json"),
+            vlnv_vendor="Other",
+            vlnv_version="2.0",
+        )
+
+
+def test_missing_metadata_and_vlnv_options_raises():
+    with pytest.raises(ValueError, match="missing required option\\(s\\) vlnv_library, or option 'metadata'"):
+        _import(FIXTURES / "adder" / "adder.sv", vlnv_vendor="Vendor")
+
+
+def test_vlnv_option_of_wrong_type_raises():
+    with pytest.raises(ValueError, match="option 'vlnv_version' must be a string, got: 2"):
+        _import(FIXTURES / "adder" / "adder.sv", vlnv_vendor="Vendor", vlnv_library="Library", vlnv_version=2)

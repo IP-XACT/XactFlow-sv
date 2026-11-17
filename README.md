@@ -85,7 +85,8 @@ IP-XACT's own expression model treats them.
 
 ### Generated component
 
-- **VLNV**: vendor, library and version from the metadata file, name from the module.
+- **VLNV**: vendor, library and version from the metadata file (or the
+  [options](#options)), name from the module.
 - **Model**: one view `rtl` referencing one component instantiation `<module>_rtl`, with
   `language` `systemverilog` and `moduleName` the module name.
 - **Parameters**: each overridable SV parameter gives a component `parameter` (with
@@ -103,7 +104,8 @@ IP-XACT's own expression model treats them.
   - unpacked dimensions become `arrays`, `[N]` giving `[(N)-1:0]`;
   - a clock or reset wire port gets an `isClock` or `isReset` (with its `level`) qualifier,
     see [Clocks and resets](#clocks-and-resets).
-- **Bus interfaces** and **memory maps**: from the metadata file, see below.
+- **Bus interfaces** and **memory maps**: from the metadata file (or, for the memory map,
+  the `registerFile` [option](#options)), see below.
 
 ### Metadata file
 
@@ -194,7 +196,14 @@ number after it for a replicated signal (`clk_iA`/`clk_iB`/`clk_iC` in a TMR des
 Given as `--option name=value` on the CLI, or as keyword arguments to `import_`, after the
 library:
 
-- `metadata` (required): path to the metadata file.
+- `metadata`: path to the metadata file.
+- `vlnv_vendor`, `vlnv_library`, `vlnv_version`, `registerFile`: instead of a metadata file,
+  e.g. when a build system already knows them, `--option vlnv_vendor=V
+  --option vlnv_library=L --option registerFile=regs.rdl`. They mean the same as the metadata
+  file's `vendor`, `library`, `version` and `registerFile`: `vlnv_vendor` and `vlnv_library`
+  are required, `vlnv_version` defaults to `"1.0"`. They cannot be used together with
+  `metadata`, so the same value is never given twice. Without a metadata file, the component
+  has no bus interfaces, and its clocks and resets are detected from the port names.
 - `define`: preprocessor symbols to predefine before parsing, `--option define=SYM1,SYM2=4`
   on the CLI or `define=["SYM1", "SYM2=4"]` in Python.
 - `include`: directories to search for `` `include `` files, in addition to the `.sv` file's
