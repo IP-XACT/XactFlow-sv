@@ -14,7 +14,7 @@ authors = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "xactflow>=0.4.0",
+    "xactflow>=0.4.1",
     "ipxact-compiler>=0.2.0",
     "pyslang>=11.0.0",
     "systemrdl-compiler>=1.32.2",
@@ -44,6 +44,7 @@ Issues = "https://github.com/IP-XACT/XactFlow-sv/issues"
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "mypy",
 ]
 
 [project.entry-points."xactflow.importers"]
@@ -57,3 +58,13 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 xactflow_sv = ["py.typed"]
+
+[tool.mypy]
+files = ["src"]
+
+# pyslang's generated stubs do not parse (an enum member named None), so mypy stops on them.
+# sv_parser.py only reads pyslang's syntax tree as JSON, so nothing is lost by skipping them.
+[[tool.mypy.overrides]]
+module = ["pyslang", "pyslang.*"]
+follow_imports = "skip"
+follow_imports_for_stubs = true
