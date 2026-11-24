@@ -94,12 +94,15 @@ def build_bus_interface(name: str, iface: dict, memory_map_ref: Optional[str] = 
     map a target interface references.
 
     The abstraction definition is derived by convention as "<bus-def-name>_rtl" at the same
-    vendor/library/version as "bus". Physical port existence, mapping completeness and the
-    mode-specific keys are not checked here, see validate_bus_interfaces.
+    vendor/library/version as "bus". The entry's keys are checked here, raising ValueError, as
+    in validate_bus_interfaces; physical port existence and mapping completeness are not.
     """
     mode = _mode(iface.get("mode"))
     if mode is None:
         raise ValueError(f"busInterface '{name}': unknown mode '{iface.get('mode')}' (expected {_modes_text()})")
+    errors = _entry_key_errors(name, iface, [memory_map_ref] if memory_map_ref else [])
+    if errors:
+        raise ValueError("; ".join(errors))
 
     bus_type = _parse_vlnv(iface.get("bus"), f"busInterface '{name}' bus")
 
@@ -124,7 +127,7 @@ def build_bus_interface(name: str, iface: dict, memory_map_ref: Optional[str] = 
         abstraction_types = [ipxact.AbstractionType(abstraction_ref=abstraction_ref, port_maps=port_maps)]
 
     Mode = ipxact.InterfaceMode
-    group = iface.get("group")
+    # "group" and "monitoredMode" are there when their mode needs them, see _entry_key_errors.
     return ipxact.BusInterface(
         name=name,
         bus_type=bus_type,
@@ -132,12 +135,14 @@ def build_bus_interface(name: str, iface: dict, memory_map_ref: Optional[str] = 
         abstraction_types=abstraction_types,
         initiator=ipxact.InitiatorInterface() if mode == Mode.INITIATOR else None,
         target=ipxact.TargetInterface(memory_map_ref=memory_map_ref) if mode == Mode.TARGET else None,
-        system=ipxact.SystemInterface(group=group) if mode == Mode.SYSTEM else None,
+        system=ipxact.SystemInterface(group=iface["group"]) if mode == Mode.SYSTEM else None,
         mirrored_initiator=ipxact.MirroredInitiatorInterface() if mode == Mode.MIRRORED_INITIATOR else None,
         mirrored_target=ipxact.MirroredTargetInterface() if mode == Mode.MIRRORED_TARGET else None,
-        mirrored_system=ipxact.SystemInterface(group=group) if mode == Mode.MIRRORED_SYSTEM else None,
+        mirrored_system=ipxact.SystemInterface(group=iface["group"]) if mode == Mode.MIRRORED_SYSTEM else None,
         monitor=(
-            ipxact.MonitorInterface(interface_mode=_mode(iface.get("monitoredMode")), group=group)
+            ipxact.MonitorInterface(
+                interface_mode=_MODE_MAP[iface["monitoredMode"].lower()], group=iface.get("group")
+            )
             if mode == Mode.MONITOR
             else None
         ),

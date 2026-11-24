@@ -6,6 +6,7 @@ import pytest
 
 from xactflow import Library
 from xactflow_sv import SVImporter
+from xactflow_sv.bus_interfaces import build_bus_interface
 
 FIXTURES = Path(__file__).parent / "fixtures"
 
@@ -372,3 +373,20 @@ def test_other_bus_interface_modes(tmp_path, entry, field, value):
 
     assert getattr(bus_interface, field) == value
     assert bus_interface.initiator is None and bus_interface.target is None
+
+
+@pytest.mark.parametrize(
+    "iface, match",
+    [
+        ({"mode": "monitor"}, "a monitor needs a 'monitoredMode'"),
+        ({"mode": "monitor", "monitoredMode": "monitor"}, "a monitor needs a 'monitoredMode'"),
+        ({"mode": "monitor", "monitoredMode": "system"}, "a system interface needs a 'group'"),
+        ({"mode": "system"}, "a system interface needs a 'group'"),
+        ({"mode": "initiator", "group": "g"}, "'group' is only for a system"),
+        ({"mode": "target", "memoryMap": "regs_mmap"}, "memoryMap 'regs_mmap' is not a memory map"),
+    ],
+)
+def test_build_bus_interface_checks_the_entry_keys(iface, match):
+    # Called on its own, without validate_bus_interfaces first.
+    with pytest.raises(ValueError, match=match):
+        build_bus_interface("bus", {"bus": "V:L:apb4:1.0", "ports": {"PSEL": "psel"}, **iface})
