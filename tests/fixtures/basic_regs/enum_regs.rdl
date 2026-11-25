@@ -1,0 +1,13 @@
+// A field encoded with an enum, with and without name/desc on its entries.
+enum mode_e {
+    OFF = 0 { name = "Off"; desc = "the block is off"; };
+    SLOW = 1 { desc = "low power"; };
+    FAST = 2;
+};
+
+addrmap enum_regs {
+    reg {
+        field { sw = rw; hw = r; encode = mode_e; } mode[2] = 0;
+        field { sw = rw; hw = r; } other[4] = 0;
+    } CFG @ 0x0;
+};

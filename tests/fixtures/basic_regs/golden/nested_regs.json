@@ -1,0 +1,122 @@
+[
+  {
+    "name": "nested_regs_mmap",
+    "items": [
+      {
+        "name": "nested_regs",
+        "range": "'h204",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "TOP_REG",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "outer",
+            "address_offset": "'h100",
+            "range": "'h18",
+            "registers": [
+              {
+                "name": "OUTER_REG",
+                "address_offset": "'h0",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "value",
+                    "bit_offset": "0",
+                    "bit_width": "16",
+                    "resets": [
+                      {
+                        "value": "'h0"
+                      }
+                    ],
+                    "field_access_policies": [
+                      {
+                        "access": "read-write"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "inner",
+                "address_offset": "'h10",
+                "range": "'h8",
+                "registers": [
+                  {
+                    "name": "INNER_REG",
+                    "address_offset": "'h4",
+                    "size": "32",
+                    "fields": [
+                      {
+                        "name": "value",
+                        "bit_offset": "0",
+                        "bit_width": "8",
+                        "resets": [
+                          {
+                            "value": "'h0"
+                          }
+                        ],
+                        "field_access_policies": [
+                          {
+                            "access": "read-write"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "description": "outer register file"
+          },
+          {
+            "name": "sub",
+            "address_offset": "'h200",
+            "range": "'h4",
+            "registers": [
+              {
+                "name": "SUB_REG",
+                "address_offset": "'h0",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "value",
+                    "bit_offset": "0",
+                    "bit_width": "32",
+                    "volatile": true,
+                    "field_access_policies": [
+                      {
+                        "access": "read-only"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

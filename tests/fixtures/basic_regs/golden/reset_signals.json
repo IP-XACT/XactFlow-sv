@@ -1,0 +1,64 @@
+[
+  {
+    "name": "reset_signals_mmap",
+    "items": [
+      {
+        "name": "reset_signals",
+        "range": "'h4",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "CTRL",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "by_default",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              },
+              {
+                "name": "by_soft_rst",
+                "bit_offset": "8",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h5",
+                    "reset_type_ref": "soft_rst"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              },
+              {
+                "name": "no_reset",
+                "bit_offset": "16",
+                "bit_width": "8",
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

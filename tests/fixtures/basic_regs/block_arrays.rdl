@@ -1,0 +1,14 @@
+// Only addrmaps and mems under the top addrmap, one of them an array: each becomes an address
+// block, the array an address block array. A mem without software access is no-access.
+addrmap lane_map {
+    reg { field { sw = rw; hw = r; } value[8] = 0; } LANE_REG @ 0x0;
+};
+
+addrmap block_arrays {
+    lane_map LANE[4] @ 0x0 += 0x100;
+    external mem {
+        mementries = 16;
+        memwidth = 32;
+        sw = na;
+    } SHADOW @ 0x1000;
+};

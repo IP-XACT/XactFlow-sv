@@ -1,0 +1,341 @@
+[
+  {
+    "name": "field_access_mmap",
+    "items": [
+      {
+        "name": "field_access",
+        "range": "'h14",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "SW_ACCESS",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "ro_f",
+                "bit_offset": "0",
+                "bit_width": "1",
+                "volatile": true,
+                "field_access_policies": [
+                  {
+                    "access": "read-only"
+                  }
+                ]
+              },
+              {
+                "name": "rw_f",
+                "bit_offset": "1",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h1"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              },
+              {
+                "name": "wo_f",
+                "bit_offset": "2",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "write-only"
+                  }
+                ]
+              },
+              {
+                "name": "rw1_f",
+                "bit_offset": "3",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-writeOnce"
+                  }
+                ]
+              },
+              {
+                "name": "w1_f",
+                "bit_offset": "4",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "writeOnce"
+                  }
+                ]
+              }
+            ],
+            "display_name": "Software access"
+          },
+          {
+            "name": "ON_READ",
+            "address_offset": "'h4",
+            "size": "32",
+            "fields": [
+              {
+                "name": "rclr_f",
+                "bit_offset": "0",
+                "bit_width": "1",
+                "volatile": true,
+                "field_access_policies": [
+                  {
+                    "access": "read-only",
+                    "read_action": "clear"
+                  }
+                ]
+              },
+              {
+                "name": "rset_f",
+                "bit_offset": "1",
+                "bit_width": "1",
+                "volatile": true,
+                "field_access_policies": [
+                  {
+                    "access": "read-only",
+                    "read_action": "set"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ON_WRITE",
+            "address_offset": "'h8",
+            "size": "32",
+            "fields": [
+              {
+                "name": "woclr_f",
+                "bit_offset": "0",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "oneToClear"
+                  }
+                ]
+              },
+              {
+                "name": "woset_f",
+                "bit_offset": "1",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "oneToSet"
+                  }
+                ]
+              },
+              {
+                "name": "wot_f",
+                "bit_offset": "2",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "oneToToggle"
+                  }
+                ]
+              },
+              {
+                "name": "wzc_f",
+                "bit_offset": "3",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "zeroToClear"
+                  }
+                ]
+              },
+              {
+                "name": "wzs_f",
+                "bit_offset": "4",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "zeroToSet"
+                  }
+                ]
+              },
+              {
+                "name": "wzt_f",
+                "bit_offset": "5",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "zeroToToggle"
+                  }
+                ]
+              },
+              {
+                "name": "wclr_f",
+                "bit_offset": "6",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "clear"
+                  }
+                ]
+              },
+              {
+                "name": "wset_f",
+                "bit_offset": "7",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "set"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "INTR",
+            "address_offset": "'hc",
+            "size": "32",
+            "fields": [
+              {
+                "name": "pending",
+                "bit_offset": "0",
+                "bit_width": "4",
+                "volatile": true,
+                "resets": [
+                  {
+                    "value": "'ha"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-only",
+                    "read_action": "clear",
+                    "testable": false
+                  }
+                ],
+                "display_name": "Pending",
+                "description": "set by hardware, cleared by reading it"
+              },
+              {
+                "name": "upper",
+                "bit_offset": "4",
+                "bit_width": "5",
+                "resets": [
+                  {
+                    "value": "'h1f"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ],
+            "description": "interrupt status"
+          },
+          {
+            "name": "USER",
+            "address_offset": "'h10",
+            "size": "32",
+            "fields": [
+              {
+                "name": "ruser_f",
+                "bit_offset": "0",
+                "bit_width": "1",
+                "volatile": true,
+                "field_access_policies": [
+                  {
+                    "access": "read-only",
+                    "read_action": "modify"
+                  }
+                ]
+              },
+              {
+                "name": "wuser_f",
+                "bit_offset": "1",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write",
+                    "modified_write_value": "modify"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true,
+        "display_name": "Field access",
+        "description": "sw, onread and onwrite variants"
+      }
+    ]
+  }
+]

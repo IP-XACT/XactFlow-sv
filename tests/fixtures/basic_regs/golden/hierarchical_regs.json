@@ -1,0 +1,69 @@
+[
+  {
+    "name": "hierarchical_regs_mmap",
+    "items": [
+      {
+        "name": "blk0",
+        "range": "'h4",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "LEAF_REG",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      },
+      {
+        "name": "blk1",
+        "range": "'h4",
+        "width": "32",
+        "base_address": "'h100",
+        "registers": [
+          {
+            "name": "LEAF_REG",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

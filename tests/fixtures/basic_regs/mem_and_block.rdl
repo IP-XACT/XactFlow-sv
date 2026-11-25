@@ -1,0 +1,15 @@
+// A top addrmap holding only an addrmap and a mem, each one becoming its own address block.
+addrmap regs_block {
+    reg { field { sw = rw; hw = r; } value[16] = 0; } CTRL @ 0x0;
+};
+
+addrmap mem_and_block {
+    desc = "a register block and a RAM";
+    regs_block regs @ 0x0;
+    external mem {
+        name = "Scratch RAM";
+        mementries = 64;
+        memwidth = 64;
+        sw = rw;
+    } RAM @ 0x1000;
+};

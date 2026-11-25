@@ -1,0 +1,22 @@
+// Alias registers: another software access to the storage of their primary register, in the
+// top addrmap and in a register file. An alias can hold only part of the primary's fields.
+reg ctrl_r {
+    field { sw = rw; hw = r; } enable[1] = 0;
+    field { sw = rw; hw = r; } mode[3:1] = 0;
+};
+
+reg ctrl_clear_r {
+    desc = "write 1 to clear";
+    field { sw = rw; hw = r; onwrite = woclr; } enable[1] = 0;
+};
+
+regfile channel_rf {
+    ctrl_r CTRL @ 0x0;
+    alias CTRL ctrl_clear_r CTRL_CLR @ 0x4;
+};
+
+addrmap alias_regs {
+    ctrl_r MAIN @ 0x0;
+    alias MAIN ctrl_r MAIN_ALIAS @ 0x4;
+    channel_rf CH @ 0x100;
+};

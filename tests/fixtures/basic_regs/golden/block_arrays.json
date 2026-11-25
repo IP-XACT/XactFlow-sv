@@ -1,0 +1,59 @@
+[
+  {
+    "name": "block_arrays_mmap",
+    "items": [
+      {
+        "name": "LANE",
+        "range": "'h4",
+        "width": "32",
+        "base_address": "'h0",
+        "array": {
+          "dims": [
+            {
+              "size": "4"
+            }
+          ],
+          "stride": "'h100"
+        },
+        "registers": [
+          {
+            "name": "LANE_REG",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      },
+      {
+        "name": "SHADOW",
+        "range": "'h40",
+        "width": "32",
+        "base_address": "'h1000",
+        "usage": "memory",
+        "access_policies": [
+          {
+            "access": "no-access"
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

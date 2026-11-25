@@ -1,0 +1,13 @@
+// A 64-bit register accessed through 32-bit accesses, next to a 32-bit one.
+addrmap accesswidth_regs {
+    reg {
+        regwidth = 64;
+        accesswidth = 32;
+        field { sw = rw; hw = r; } low[32] = 0;
+        field { sw = rw; hw = r; } high[32] = 0;
+    } WIDE @ 0x0;
+
+    reg {
+        field { sw = rw; hw = r; } value[8] = 0;
+    } NARROW @ 0x8;
+};

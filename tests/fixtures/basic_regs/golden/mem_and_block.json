@@ -1,0 +1,53 @@
+[
+  {
+    "name": "mem_and_block_mmap",
+    "items": [
+      {
+        "name": "regs",
+        "range": "'h4",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "CTRL",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "16",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      },
+      {
+        "name": "RAM",
+        "range": "'h200",
+        "width": "64",
+        "base_address": "'h1000",
+        "usage": "memory",
+        "access_policies": [
+          {
+            "access": "read-write"
+          }
+        ],
+        "misalignment_allowed": true,
+        "display_name": "Scratch RAM"
+      }
+    ],
+    "description": "a register block and a RAM"
+  }
+]

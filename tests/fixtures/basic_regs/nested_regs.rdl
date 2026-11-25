@@ -1,0 +1,21 @@
+// Register files nested in register files, and an addrmap nested in the top addrmap next to a
+// register, which becomes a register file of the top's single address block.
+regfile inner_rf {
+    reg { field { sw = rw; hw = r; } value[8] = 0; } INNER_REG @ 0x4;
+};
+
+regfile outer_rf {
+    desc = "outer register file";
+    reg { field { sw = rw; hw = r; } value[16] = 0; } OUTER_REG @ 0x0;
+    inner_rf inner @ 0x10;
+};
+
+addrmap sub_map {
+    reg { field { sw = r; hw = w; } value[32]; } SUB_REG @ 0x0;
+};
+
+addrmap nested_regs {
+    reg { field { sw = rw; hw = r; } value[8] = 0; } TOP_REG @ 0x0;
+    outer_rf outer @ 0x100;
+    sub_map sub @ 0x200;
+};

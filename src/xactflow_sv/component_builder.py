@@ -7,7 +7,7 @@ file; this module assembles them into the final Component.
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Union
 
 import ipxact
 
@@ -85,6 +85,27 @@ def _build_port(port: dict, qualifier: Optional[ipxact.Qualifier] = None) -> ipx
     )
 
 
+def _reset_types(memory_maps: list[ipxact.MemoryMap]) -> list[ipxact.ResetType]:
+    """The reset types the field resets of `memory_maps` refer to, in order of first use. A
+    reset that refers to none is of IP-XACT's default reset type, which is not declared.
+    """
+    names: dict[str, None] = {}
+
+    def add(items: list[Union[ipxact.Register, ipxact.RegisterFile]]) -> None:
+        for item in items:
+            if isinstance(item, ipxact.RegisterFile):
+                add(item.registers)
+                continue
+            for field in item.fields:
+                names.update((reset.reset_type_ref, None) for reset in field.resets if reset.reset_type_ref)
+
+    for memory_map in memory_maps:
+        for block in memory_map.items:
+            if isinstance(block, ipxact.AddressBlock):
+                add(block.registers)
+    return [ipxact.ResetType(name=name) for name in names]
+
+
 def build_component(
     module_name: str,
     vendor: str,
@@ -122,5 +143,6 @@ def build_component(
         bus_interfaces=list(bus_interfaces or []),
         memory_maps=list(memory_maps or []),
         model=model,
+        reset_types=_reset_types(memory_maps or []),
         parameters=_build_parameters(params),
     )

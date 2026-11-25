@@ -1,0 +1,73 @@
+[
+  {
+    "name": "enum_regs_mmap",
+    "items": [
+      {
+        "name": "enum_regs",
+        "range": "'h4",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "CFG",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "mode",
+                "bit_offset": "0",
+                "bit_width": "2",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ],
+                "enumerated_values": [
+                  {
+                    "name": "OFF",
+                    "value": "'h0",
+                    "usage": "read-write",
+                    "display_name": "Off",
+                    "description": "the block is off"
+                  },
+                  {
+                    "name": "SLOW",
+                    "value": "'h1",
+                    "usage": "read-write",
+                    "description": "low power"
+                  },
+                  {
+                    "name": "FAST",
+                    "value": "'h2",
+                    "usage": "read-write"
+                  }
+                ]
+              },
+              {
+                "name": "other",
+                "bit_offset": "2",
+                "bit_width": "4",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

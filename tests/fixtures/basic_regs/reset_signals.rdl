@@ -1,0 +1,13 @@
+// Fields reset by the default field_reset signal, by another reset signal, and not reset.
+addrmap reset_signals {
+    signal { field_reset; activelow; } rst_n;
+    signal { activehigh; } soft_rst;
+
+    reg {
+        field { sw = rw; hw = r; } by_default[8] = 0;
+        field { sw = rw; hw = r; } by_soft_rst[8] = 0x5;
+        field { sw = rw; hw = r; } no_reset[8];
+    } CTRL @ 0x0;
+
+    CTRL.by_soft_rst->resetsignal = soft_rst;
+};

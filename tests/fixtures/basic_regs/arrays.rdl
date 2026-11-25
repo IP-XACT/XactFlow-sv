@@ -1,0 +1,18 @@
+// Register and register file arrays: packed, with a stride larger than an element, with two
+// dimensions, and an addrmap array, which becomes a register file array.
+regfile channel_rf {
+    reg { field { sw = rw; hw = r; } enable[1] = 0; } CFG @ 0x0;
+    reg { field { sw = r; hw = w; } count[16]; } COUNT @ 0x4;
+};
+
+addrmap lane_map {
+    reg { field { sw = rw; hw = r; } value[8] = 0; } LANE_REG @ 0x0;
+};
+
+addrmap arrays {
+    reg { field { sw = rw; hw = r; } value[8] = 0; } CTRL[4] @ 0x0;
+    reg { field { sw = rw; hw = r; } value[8] = 0; } SPARSE[4] @ 0x20 += 0x8;
+    reg { field { sw = rw; hw = r; } value[8] = 0; } MATRIX[2][3] @ 0x40;
+    channel_rf CH[2] @ 0x100 += 0x10;
+    lane_map LANE[2] @ 0x200;
+};

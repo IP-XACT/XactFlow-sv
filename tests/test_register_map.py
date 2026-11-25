@@ -103,9 +103,11 @@ def test_reusable_sub_block_addrmap_is_not_treated_as_ambiguous():
     assert address_blocks_by_name["blk0"].registers[0].name == "LEAF_REG"
 
 
-def test_register_array_with_oversized_stride_raises_value_error():
-    with pytest.raises(ValueError, match="failed to compile"):
-        build_memory_maps(FIXTURES / "basic_regs" / "bad_stride.rdl")
+def test_register_array_with_oversized_stride_is_supported():
+    (memory_map,) = build_memory_maps(FIXTURES / "basic_regs" / "bad_stride.rdl")
+
+    (register,) = memory_map.items[0].registers
+    assert register.array.stride == ipxact.Expression("'h8")
 
 
 def test_register_file_pointing_at_a_directory_raises_value_error(tmp_path):
@@ -121,28 +123,97 @@ def test_ispresent_false_register_not_yet_supported():
         build_memory_maps(FIXTURES / "basic_regs" / "ispresent_regs.rdl")
 
 
-def test_construct_peakrdl_ipxact_cannot_export_raises():
-    with pytest.raises(NotImplementedError, match="could not be fully converted"):
+def test_construct_ipxact_cannot_represent_raises():
+    with pytest.raises(NotImplementedError, match="'top_with_nested_mem', which becomes an IP-XACT address block"):
         build_memory_maps(FIXTURES / "basic_regs" / "nested_mem.rdl")
 
 
-def test_register_array_not_yet_supported():
-    with pytest.raises(NotImplementedError, match="is an array"):
-        build_memory_maps(FIXTURES / "basic_regs" / "array_regs.rdl")
+def test_register_array_is_supported():
+    (memory_map,) = build_memory_maps(FIXTURES / "basic_regs" / "array_regs.rdl")
+
+    (register,) = memory_map.items[0].registers
+    assert register.array == ipxact.MemoryArray(
+        dims=[ipxact.ArrayDim(size=ipxact.Expression("4"))], stride=ipxact.Expression("'h4")
+    )
 
 
-def test_unexpected_exporter_output_raises(monkeypatch):
-    class _FakeExporter:
-        def __init__(self, **kwargs):
-            pass
+def test_addrmap_only_used_with_ispresent_false_raises_ispresent_error(tmp_path):
+    rdl = tmp_path / "not_present.rdl"
+    rdl.write_text(
+        "addrmap sub { reg { field { sw = rw; hw = r; } v[8] = 0; } R @ 0x0; };\n"
+        "addrmap t { sub S @ 0x0; S->ispresent = false;"
+        " reg { field { sw = rw; hw = r; } v[8] = 0; } X @ 0x100; };\n"
+    )
 
-        def export(self, root_node, path):
-            Path(path).write_text('<?xml version="1.0"?><not-ipxact-component/>')
+    with pytest.raises(NotImplementedError, match="'t.S' has ispresent=false"):
+        build_memory_maps(rdl)
 
-    monkeypatch.setattr("xactflow_sv.register_map.IPXACTExporter", _FakeExporter)
 
-    with pytest.raises(RuntimeError, match="unexpected root element"):
-        build_memory_maps(FIXTURES / "basic_regs" / "basic_regs.rdl")
+def test_single_include_dir_not_in_a_list_raises():
+    with pytest.raises(TypeError, match="include_dirs must be a list of directories"):
+        build_memory_maps(FIXTURES / "basic_regs" / "basic_regs.rdl", include_dirs="inc")
+
+
+def test_compile_error_gives_the_compiler_messages(tmp_path):
+    rdl = tmp_path / "overlap.rdl"
+    rdl.write_text(
+        "addrmap overlap {\n"
+        "    reg { field { sw = rw; hw = r; } v[8] = 0; } A @ 0x0;\n"
+        "    reg { field { sw = rw; hw = r; } v[8] = 0; } B @ 0x0;\n"
+        "};\n"
+    )
+
+    with pytest.raises(ValueError, match=f"failed to compile: {rdl}:3: .*overlap"):
+        build_memory_maps(rdl)
+
+
+def test_unused_addrmap_of_an_included_file_is_allowed(tmp_path):
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "blocks.rdl").write_text(
+        "addrmap blk_a { reg { field { sw = rw; hw = r; } v[8] = 0; } R @ 0x0; };\n"
+        "addrmap blk_b { reg { field { sw = rw; hw = r; } v[8] = 0; } R @ 0x0; };\n"
+    )
+    rdl = tmp_path / "top.rdl"
+    rdl.write_text('`include "blocks.rdl"\naddrmap top { blk_a A @ 0x0; blk_a B @ 0x100; };\n')
+
+    (memory_map,) = build_memory_maps(rdl, include_dirs=[tmp_path / "lib"])
+    assert [block.name for block in memory_map.items] == ["A", "B"]
+
+
+def test_single_udp_not_in_a_list_raises():
+    from test_register_map_node import _Owner
+
+    with pytest.raises(TypeError, match="udps must be a list of user-defined property classes"):
+        build_memory_maps(FIXTURES / "basic_regs" / "basic_regs.rdl", udps=_Owner)
+
+
+def test_component_declares_the_reset_types_its_fields_refer_to():
+    component = _import(
+        FIXTURES / "basic_regs" / "basic_regs.sv",
+        vlnv_vendor="Vendor",
+        vlnv_library="Library",
+        registerFile=str(FIXTURES / "basic_regs" / "reset_signals.rdl"),
+    )
+
+    assert component.reset_types == [ipxact.ResetType(name="soft_rst")]
+
+
+def test_component_without_reset_signals_has_no_reset_types():
+    component = _import(
+        FIXTURES / "basic_regs" / "basic_regs.sv",
+        metadata=str(FIXTURES / "basic_regs" / "basic_regs_ipxact.json"),
+    )
+
+    assert component.reset_types == []
+
+
+def test_compiler_warning_raises(tmp_path):
+    # Instantiating an addrmap in the root namespace is ignored by the compiler, with a warning.
+    rdl = tmp_path / "warn.rdl"
+    rdl.write_text("addrmap warn { reg { field { sw = rw; hw = r; } value[4] = 0; } CTRL @ 0x0; } warn_inst;\n")
+
+    with pytest.raises(NotImplementedError, match="could not be fully converted"):
+        build_memory_maps(rdl)
 
 
 def test_missing_register_file_raises_value_error():

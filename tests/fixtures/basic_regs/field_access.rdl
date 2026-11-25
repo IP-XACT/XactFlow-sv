@@ -1,0 +1,46 @@
+// Every sw access, onread and onwrite mapping, plus name/desc, volatile and donttest.
+addrmap field_access {
+    name = "Field access";
+    desc = "sw, onread and onwrite variants";
+
+    reg {
+        name = "Software access";
+        field { sw = r;   hw = w; } ro_f[1];
+        field { sw = rw;  hw = r; } rw_f[1] = 1;
+        field { sw = w;   hw = r; } wo_f[1] = 0;
+        field { sw = rw1; hw = r; } rw1_f[1] = 0;
+        field { sw = w1;  hw = r; } w1_f[1] = 0;
+    } SW_ACCESS @ 0x0;
+
+    reg {
+        field { sw = r; hw = w; onread = rclr; } rclr_f[1];
+        field { sw = r; hw = w; onread = rset; } rset_f[1];
+    } ON_READ @ 0x4;
+
+    reg {
+        field { sw = rw; hw = r; onwrite = woclr; } woclr_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = woset; } woset_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = wot; } wot_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = wzc; } wzc_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = wzs; } wzs_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = wzt; } wzt_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = wclr; } wclr_f[1] = 0;
+        field { sw = rw; hw = r; onwrite = wset; } wset_f[1] = 0;
+    } ON_WRITE @ 0x8;
+
+    reg {
+        desc = "interrupt status";
+        field {
+            name = "Pending";
+            desc = "set by hardware, cleared by reading it";
+            sw = r; hw = w; onread = rclr; donttest;
+        } pending[4] = 0xA;
+        field { sw = rw; hw = r; } upper[8:4] = 0x1F;
+    } INTR @ 0xC;
+
+    // ruser and wuser are only allowed on an external register.
+    external reg {
+        field { sw = r; hw = w; onread = ruser; } ruser_f[1];
+        field { sw = rw; hw = r; onwrite = wuser; } wuser_f[1] = 0;
+    } USER @ 0x10;
+};

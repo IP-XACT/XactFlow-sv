@@ -1,0 +1,181 @@
+[
+  {
+    "name": "alias_regs_mmap",
+    "items": [
+      {
+        "name": "alias_regs",
+        "range": "'h108",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "MAIN",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "enable",
+                "bit_offset": "0",
+                "bit_width": "1",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              },
+              {
+                "name": "mode",
+                "bit_offset": "1",
+                "bit_width": "3",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "MAIN_ALIAS",
+            "address_offset": "'h4",
+            "size": "32",
+            "fields": [
+              {
+                "name": "enable",
+                "bit_offset": "0",
+                "alias_of": {
+                  "field_ref": {
+                    "name": "enable"
+                  },
+                  "register_ref": {
+                    "name": "MAIN"
+                  },
+                  "address_block_ref": {
+                    "name": "alias_regs"
+                  },
+                  "memory_map_ref": "alias_regs_mmap"
+                },
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              },
+              {
+                "name": "mode",
+                "bit_offset": "1",
+                "alias_of": {
+                  "field_ref": {
+                    "name": "mode"
+                  },
+                  "register_ref": {
+                    "name": "MAIN"
+                  },
+                  "address_block_ref": {
+                    "name": "alias_regs"
+                  },
+                  "memory_map_ref": "alias_regs_mmap"
+                },
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "CH",
+            "address_offset": "'h100",
+            "range": "'h8",
+            "registers": [
+              {
+                "name": "CTRL",
+                "address_offset": "'h0",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "enable",
+                    "bit_offset": "0",
+                    "bit_width": "1",
+                    "resets": [
+                      {
+                        "value": "'h0"
+                      }
+                    ],
+                    "field_access_policies": [
+                      {
+                        "access": "read-write"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "mode",
+                    "bit_offset": "1",
+                    "bit_width": "3",
+                    "resets": [
+                      {
+                        "value": "'h0"
+                      }
+                    ],
+                    "field_access_policies": [
+                      {
+                        "access": "read-write"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "CTRL_CLR",
+                "address_offset": "'h4",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "enable",
+                    "bit_offset": "0",
+                    "alias_of": {
+                      "field_ref": {
+                        "name": "enable"
+                      },
+                      "register_ref": {
+                        "name": "CTRL"
+                      },
+                      "register_file_refs": [
+                        {
+                          "name": "CH"
+                        }
+                      ],
+                      "address_block_ref": {
+                        "name": "alias_regs"
+                      },
+                      "memory_map_ref": "alias_regs_mmap"
+                    },
+                    "field_access_policies": [
+                      {
+                        "access": "read-write",
+                        "modified_write_value": "oneToClear"
+                      }
+                    ]
+                  }
+                ],
+                "description": "write 1 to clear"
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

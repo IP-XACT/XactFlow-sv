@@ -1,0 +1,20 @@
+[
+  {
+    "name": "mem_regs_mmap",
+    "items": [
+      {
+        "name": "ROM",
+        "range": "'h40",
+        "width": "32",
+        "base_address": "'h0",
+        "usage": "memory",
+        "access_policies": [
+          {
+            "access": "read-only"
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

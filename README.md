@@ -33,8 +33,7 @@ pip install -r requirements-dev.txt -e .
 
 Requires Python >= 3.9. Runtime dependencies beyond `ipxact-compiler`/`xactflow`:
 [`pyslang`](https://pypi.org/project/pyslang/) for SystemVerilog parsing, and
-[`systemrdl-compiler`](https://pypi.org/project/systemrdl-compiler/)/
-[`peakrdl-ipxact`](https://pypi.org/project/peakrdl-ipxact/) for register map conversion.
+[`systemrdl-compiler`](https://pypi.org/project/systemrdl-compiler/) for register maps.
 
 ## Usage
 
@@ -106,6 +105,8 @@ IP-XACT's own expression model treats them.
     see [Clocks and resets](#clocks-and-resets).
 - **Bus interfaces** and **memory maps**: from the metadata file (or, for the memory map,
   the `registerFile` [option](#options)), see below.
+- **Reset types**: one per reset signal, other than the default one, that resets a field of
+  the memory map, see [Register maps](#register-maps).
 
 ### Metadata file
 
@@ -157,9 +158,9 @@ A small JSON file supplies what can't be inferred from the SV source alone:
 - `memoryMap` names the memory map a target interface gives access to. When the component has
   exactly one target interface and one memory map, that target references it by default.
 - `registerFile` is a path (absolute, or relative to the metadata file) to a SystemRDL file
-  describing the component's register map. It is compiled with `systemrdl-compiler`,
-  converted with `peakrdl-ipxact`, and merged in as the component's `memory_maps`. Its memory
-  map is named `<addrmap name>_mmap`.
+  describing the component's register map. It is compiled with `systemrdl-compiler`, its
+  last-defined `addrmap` being the top, and becomes the component's `memory_maps`, see
+  [Register maps](#register-maps). Its memory map is named `<addrmap name>_mmap`.
 - `clocks` lists the clock ports, and `resets` maps each reset port to its active level,
   `low` or `high`. Both are optional, see [Clocks and resets](#clocks-and-resets).
 
@@ -215,6 +216,65 @@ Paths given in options are relative to the current directory. Any SystemVerilog 
 reported while parsing (syntax error, include file not found, unknown macro) raises a
 `ValueError` with its file and line, instead of importing a partially parsed module.
 
+### Register maps
+
+A SystemRDL register map becomes one memory map, named `<addrmap name>_mmap`:
+
+- When the top `addrmap` only holds `addrmap`s and `mem`s, each one becomes an address block,
+  and the memory map carries the top's `name`/`desc`. Otherwise the top `addrmap` is the only
+  address block, and its nested `addrmap`s and `regfile`s become register files.
+- A `mem` is an address block with `usage` `memory` and its `sw` as `access`, `sw = na`
+  giving `no-access`.
+- An address block's `width` is its widest register's `regwidth`, or a `mem`'s `memwidth`.
+- A register's `size` is its `regwidth`; `accesswidth` is not represented.
+- An array address block, register or register file has an `array`, with one `dim` per
+  dimension and the RDL stride as its `stride`. Its `range` is the size of one element.
+- A field's `sw` gives its `access`, `onwrite` its `modifiedWriteValue`, `onread` its
+  `readAction`, `donttest` a `testable` of `false`, `reset` its reset value, and `encode` its
+  enumerated values.
+- A field reset by a `resetsignal` other than the `field_reset` one, the default reset, has a
+  reset of the reset type named after that signal, and the component declares that reset
+  type in its `resetTypes`. Other resets are of IP-XACT's default reset type, `HARD`.
+- A field of an `alias` register has an `aliasOf` referring to the same field of the primary
+  register, instead of a width and reset of its own, and keeps its own access.
+- `name` gives the `displayName` and `desc` the `description`, of every element.
+
+The memory map is named `<addrmap name>_mmap`. What IEEE 1685-2022 cannot represent raises
+an error instead of being left out, see [Known limitations](#known-limitations).
+
+User-defined properties are not part of the memory map.
+
+The node tree that `systemrdl-compiler` elaborates can also be converted directly, which is
+supported API: `xactflow_sv.register_map.build_memory_maps_from_node(node)` takes an
+`AddrmapNode` and returns the `ipxact.MemoryMap` list, compiling nothing itself. It suits a
+register map that needs user-defined properties, or that another tool has already compiled,
+e.g. to generate its RTL:
+
+```python
+from systemrdl import RDLCompiler, component
+from systemrdl.udp import UDPDefinition
+from xactflow_sv.register_map import build_memory_maps_from_node
+
+
+class Owner(UDPDefinition):
+    name = "owner"
+    valid_components = {component.Reg}
+    valid_type = str
+
+
+compiler = RDLCompiler()
+compiler.register_udp(Owner, soft=False)  # the RDL can then use "owner" without declaring it
+compiler.compile_file("regs.rdl")
+root = compiler.elaborate()
+
+memory_maps = build_memory_maps_from_node(root.top)  # list[ipxact.MemoryMap]
+```
+
+`xactflow_sv.register_map.build_memory_maps(path, udps=..., include_dirs=..., parameters=...)`
+compiles a file and converts it, with user-defined property classes to register, `` `include ``
+search directories, and overrides of the top `addrmap`'s parameters. These three are only
+available from Python, not from the metadata file or the CLI.
+
 ## Design notes
 
 - **Independent stages**, each targeting `ipxact-compiler` dataclasses directly rather
@@ -223,12 +283,8 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
   `bus_interfaces.py` builds `ipxact.BusInterface` from the metadata's `busInterfaces`, and
   `register_map.py` builds `ipxact.MemoryMap` from a SystemRDL file. `qualifiers.py` finds
   the clock and reset ports, from the metadata file or their names.
-- **`register_map.py` reads `peakrdl-ipxact`'s own XML output, not through
-  `ipxact-compiler`'s parser.** `peakrdl-ipxact` only supports IEEE 1685-2014, while
-  `ipxact-compiler` only supports IEEE 1685-2022. A namespace swap alone would silently lose
-  that data (a field's access policy, or a register's array dimensions, would just come back
-  empty rather than erroring), so a dedicated reader is used instead. This is a keep-it-simple
-  choice for now, maybe not permanent, see [Ideas for later](#ideas-for-later).
+- **`register_map.py` builds the memory map from `systemrdl-compiler`'s node tree**, straight
+  into `ipxact-compiler`'s IEEE 1685-2022 dataclasses, with no intermediate XML.
 - **Fails loudly instead of silently dropping data.** Constructs this package does not yet
   support (see below) raise `NotImplementedError`/`ValueError` rather than producing a
   `Component` that quietly leaves something out.
@@ -248,29 +304,35 @@ reported while parsing (syntax error, include file not found, unknown macro) rai
   `parameter type T` with no `= ...`), as there is no value to give the component parameter.
   Parameters are read from the parameter port list (`#(...)`), or from the module body when
   the module has none, `localparam`s being skipped, per the SystemVerilog LRM.
-- **Register/register file arrays are not supported.**
 - **A `registerFile` defining an `addrmap` that is never used under the chosen top-level
   `addrmap` is rejected**, rather than silently ignored as SystemRDL itself would. A reusable
-  sub-block `addrmap` instantiated under a real top is unaffected.
+  sub-block `addrmap` instantiated under a real top is unaffected, and so is an unused
+  `addrmap` of an `` `include ``d file.
 - **A register/field/register file/address block with `ispresent = false` is not supported.**
   IEEE 1685-2022 has no equivalent of `isPresent`, so there is no way to represent one as
   conditionally absent rather than silently promoting it to always-present.
-- **A SystemRDL construct `peakrdl-ipxact` cannot export at all raises an error**, e.g. a `mem`
-  node nested inside another node's hierarchy, rather than silently producing an incomplete
-  memory map.
+- **A SystemRDL construct IEEE 1685-2022 cannot represent raises an error**, rather than
+  silently producing an incomplete memory map:
+  - a `mem` that is not a child of a top `addrmap` holding only `addrmap`s and `mem`s, as an
+    address block or register file cannot hold a memory;
+  - a `bridge` `addrmap`;
+  - a field `reset` that is a reference to another field or signal;
+  - an `alias` register in an array, or in an array of register files: each alias element
+    refers to the primary element of the same index, which an IP-XACT reference cannot say;
+  - two different reset signals with the same name, or one named `HARD`, as a reset type is
+    named after its signal.
+
+  A compiler warning raises an error too, and a compile error gives the compiler's messages,
+  with their file and line.
+- **A register's `accesswidth` is not represented**, its `size` is its `regwidth`.
 - **`fileSets` are not generated.** The component never records which `.sv` file the module
   actually came from.
 
 ## Ideas for later
 
-- **Have `register_map.py` build on `ipxact-compiler`'s own parser instead of its own
-  ElementTree reader.** Not a quick swap: `peakrdl-ipxact` only emits IEEE 1685-2014 XML, and
-  `ipxact-compiler`'s parser expects 2022's structure for field access and array dimensions
-  (see [Design notes](#design-notes)). Feeding it 2014 XML after only a namespace fix-up
-  parses without error but silently comes back missing that data, confirmed by testing it
-  directly. Doing this properly needs a 2014-to-2022 XML restructuring step first (in this
-  package, not in `ipxact-compiler`, which is a 1685-2022 parser by design), or for
-  `peakrdl-ipxact` to gain 2022 output support upstream.
+- **Give `registerFile`'s compile options (user-defined properties, include directories,
+  parameter overrides) a metadata file or CLI form.** Only available from Python for now,
+  see [Register maps](#register-maps).
 
 ## License
 

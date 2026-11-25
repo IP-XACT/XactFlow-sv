@@ -1,0 +1,63 @@
+[
+  {
+    "name": "basic_regs_mmap",
+    "items": [
+      {
+        "name": "basic_regs",
+        "range": "'h8",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "CTRL",
+            "address_offset": "'h0",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ],
+                "description": "the value"
+              }
+            ],
+            "description": "control register"
+          },
+          {
+            "name": "STATUS",
+            "address_offset": "'h4",
+            "size": "32",
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "volatile": true,
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-only"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]

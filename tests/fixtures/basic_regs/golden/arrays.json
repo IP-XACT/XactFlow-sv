@@ -1,0 +1,201 @@
+[
+  {
+    "name": "arrays_mmap",
+    "items": [
+      {
+        "name": "arrays",
+        "range": "'h208",
+        "width": "32",
+        "base_address": "'h0",
+        "registers": [
+          {
+            "name": "CTRL",
+            "address_offset": "'h0",
+            "size": "32",
+            "array": {
+              "dims": [
+                {
+                  "size": "4"
+                }
+              ],
+              "stride": "'h4"
+            },
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "SPARSE",
+            "address_offset": "'h20",
+            "size": "32",
+            "array": {
+              "dims": [
+                {
+                  "size": "4"
+                }
+              ],
+              "stride": "'h8"
+            },
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "MATRIX",
+            "address_offset": "'h40",
+            "size": "32",
+            "array": {
+              "dims": [
+                {
+                  "size": "2"
+                },
+                {
+                  "size": "3"
+                }
+              ],
+              "stride": "'h4"
+            },
+            "fields": [
+              {
+                "name": "value",
+                "bit_offset": "0",
+                "bit_width": "8",
+                "resets": [
+                  {
+                    "value": "'h0"
+                  }
+                ],
+                "field_access_policies": [
+                  {
+                    "access": "read-write"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "CH",
+            "address_offset": "'h100",
+            "range": "'h8",
+            "array": {
+              "dims": [
+                {
+                  "size": "2"
+                }
+              ],
+              "stride": "'h10"
+            },
+            "registers": [
+              {
+                "name": "CFG",
+                "address_offset": "'h0",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "enable",
+                    "bit_offset": "0",
+                    "bit_width": "1",
+                    "resets": [
+                      {
+                        "value": "'h0"
+                      }
+                    ],
+                    "field_access_policies": [
+                      {
+                        "access": "read-write"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "COUNT",
+                "address_offset": "'h4",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "count",
+                    "bit_offset": "0",
+                    "bit_width": "16",
+                    "volatile": true,
+                    "field_access_policies": [
+                      {
+                        "access": "read-only"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "LANE",
+            "address_offset": "'h200",
+            "range": "'h4",
+            "array": {
+              "dims": [
+                {
+                  "size": "2"
+                }
+              ],
+              "stride": "'h4"
+            },
+            "registers": [
+              {
+                "name": "LANE_REG",
+                "address_offset": "'h0",
+                "size": "32",
+                "fields": [
+                  {
+                    "name": "value",
+                    "bit_offset": "0",
+                    "bit_width": "8",
+                    "resets": [
+                      {
+                        "value": "'h0"
+                      }
+                    ],
+                    "field_access_policies": [
+                      {
+                        "access": "read-write"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "misalignment_allowed": true
+      }
+    ]
+  }
+]
